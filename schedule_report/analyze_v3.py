@@ -15,8 +15,9 @@ from datetime import datetime
 
 warnings.filterwarnings('ignore')
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-META_DIR = os.path.join(BASE_DIR, 'meta_data')
+BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+META_DIR   = os.path.join(BASE_DIR, 'meta_data')
+EXPORT_DIR = os.path.join(BASE_DIR, 'export_data')
 
 
 # ─────────────────────────────────────────────
@@ -337,7 +338,7 @@ def gap_analysis(df_meta, succ):
             '最小空闲(分)': round(min_gap, 1),
         })
 
-    df_sug = pd.DataFrame(suggestions).sort_values('最小空闲(分)', ascending=False).head(200)
+    df_sug = pd.DataFrame(suggestions).sort_values('最小空闲(分)', ascending=False)
     return df_sug
 
 
@@ -441,7 +442,7 @@ def ads_pivot_analysis(df_meta, df_res):
     ].sort_values('downstream_cnt', ascending=False)
 
     # 完整列表（取 top200 供展示）
-    pivot_list = ads_pivot.head(200)[
+    pivot_list = ads_pivot[
         ['name', 'db_name', 'owner', 'cron_time', 'downstream_cnt', 'avg_dur', 'total_mem', 'risk', 'downstream_names']
     ].to_dict('records')
 
@@ -473,13 +474,13 @@ def ads_pivot_analysis(df_meta, df_res):
 
 
 # ─────────────────────────────────────────────
-# 7.5  SQL 优化分析（Top10 耗时作业，排除 dws_common）
+# 7.5  SQL 优化分析（高耗时作业，排除 dws_common）
+# 耗时来源：df_history（dwd_sch_history_job_di），end_time - start_time
+# 资源来源：df_res（dwd_sch_history_application_di），memory_seconds
 # ─────────────────────────────────────────────
-def sql_optimization_analysis(df_res, df_sql):
+def sql_optimization_analysis(df_history, df_res, df_sql):
     """返回 list[dict]，每个元素对应一个作业的分析结果，包含原始SQL片段和优化建议。"""
     import re as _re
-
-    df_r = df_res.copy()
 
     def parse_db(name):
         if not isinstance(name, str): return None
@@ -487,26 +488,39 @@ def sql_optimization_analysis(df_res, df_sql):
         parts = name.split('-')
         return parts[-2] if len(parts) >= 4 else None
 
-    df_r['db_name'] = df_r['job_name'].apply(parse_db)
-    df_r = df_r[df_r['db_name'].notna()]
-    df_r = df_r[~df_r['db_name'].str.endswith('_rt', na=False)]
-    df_r = df_r[df_r['db_name'] != 'dws_common']
-    df_r['elapsed_min'] = pd.to_numeric(df_r['elapsed_time'], errors='coerce') / 60
-    df_r['mem_gb_h'] = pd.to_numeric(df_r['memory_seconds'], errors='coerce') / 3600 / 1024
+    # ── 耗时：来自调度历史日志（job 级别，end_time - start_time）──
+    df_h = df_history.copy()
+    df_h['end_time']   = pd.to_datetime(df_h['end_time'],   errors='coerce')
+    df_h['start_time'] = pd.to_datetime(df_h['start_time'], errors='coerce')
+    df_h['duration_min'] = (df_h['end_time'] - df_h['start_time']).dt.total_seconds() / 60
+    # 只保留 AUTO SUCCESSFUL，过滤异常耗时（<=0）
+    df_h = df_h[(df_h['status'] == 'SUCCESSFUL') & (df_h['execute_type'] == 'AUTO')].copy()
+    df_h = df_h[df_h['duration_min'] > 0]
+    df_h['db_name'] = df_h['job_name'].apply(parse_db)
+    df_h = df_h[df_h['db_name'].notna()]
+    df_h = df_h[~df_h['db_name'].str.endswith('_rt', na=False)]
+    df_h = df_h[df_h['db_name'] != 'dws_common']
 
-    job_agg = df_r.groupby('job_name').agg(
-        avg_dur=('elapsed_min', 'mean'),
-        p90_dur=('elapsed_min', lambda x: np.nanpercentile(x.dropna(), 90) if len(x.dropna()) > 0 else np.nan),
-        total_mem=('mem_gb_h', 'sum'),
+    job_dur = df_h.groupby('job_name').agg(
+        avg_dur=('duration_min', 'mean'),
+        p90_dur=('duration_min', lambda x: np.nanpercentile(x.dropna(), 90) if len(x.dropna()) > 0 else np.nan),
         runs=('job_name', 'count'),
         db_name=('db_name', 'first'),
     ).reset_index()
+
+    # ── 资源：来自资源日志（application 级别，memory_seconds）──
+    df_r = df_res.copy()
+    df_r['mem_gb_h'] = pd.to_numeric(df_r['memory_seconds'], errors='coerce') / 3600 / 1024
+    res_agg = df_r.groupby('job_name').agg(total_mem=('mem_gb_h', 'sum')).reset_index()
+
+    job_agg = job_dur.merge(res_agg, on='job_name', how='left')
+    job_agg['total_mem'] = job_agg['total_mem'].fillna(0).round(1)
 
     # 只取有 ETL SQL 的作业
     sql_names = set(df_sql['name'].tolist())
     job_agg = job_agg[job_agg['job_name'].isin(sql_names)]
 
-    top10 = job_agg.nlargest(10, 'avg_dur').reset_index(drop=True)
+    top10 = job_agg.sort_values('avg_dur', ascending=False).reset_index(drop=True)
 
     sql_map = df_sql.set_index('name')['code'].to_dict()
 
@@ -758,7 +772,8 @@ def _tpl():
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 <style>
-:root{--c1:#1a73e8;--c2:#34a853;--c3:#fbbc04;--c4:#ea4335;--c5:#9c27b0;--bg:#f0f4f9;--card:#fff;--radius:12px;}
+:root{--c1:#1a73e8;--c2:#34a853;--c3:#fbbc04;--c4:#ea4335;--c5:#9c27b0;--bg:#f0f4f9;--card:#fff;--radius:12px;--nav-h:72px;}
+html{scroll-padding-top:var(--nav-h);}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);font-family:'PingFang SC','Helvetica Neue',Arial,sans-serif;font-size:14px;color:#333;}
 .navbar{background:linear-gradient(135deg,#1a73e8,#0d47a1);padding:16px 32px;color:#fff;position:sticky;top:0;z-index:999;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.2);}
@@ -767,7 +782,7 @@ body{background:var(--bg);font-family:'PingFang SC','Helvetica Neue',Arial,sans-
 .nav-pills a{color:#fff;text-decoration:none;padding:6px 14px;border-radius:20px;font-size:.85rem;transition:.2s;}
 .nav-pills a:hover{background:rgba(255,255,255,.2);}
 .content{max-width:1600px;margin:24px auto;padding:0 20px;}
-.section{background:var(--card);border-radius:var(--radius);box-shadow:0 2px 12px rgba(0,0,0,.08);margin-bottom:28px;overflow:hidden;}
+.section{background:var(--card);border-radius:var(--radius);box-shadow:0 2px 12px rgba(0,0,0,.08);margin-bottom:28px;overflow:hidden;scroll-margin-top:var(--nav-h);}
 .section-header{background:linear-gradient(90deg,#1a73e8,#1557b0);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:10px;}
 .section-header h2{font-size:1.1rem;font-weight:600;margin:0;}
 .badge-num{background:rgba(255,255,255,.3);border-radius:12px;padding:2px 10px;font-size:.8rem;}
@@ -1395,9 +1410,19 @@ dbSel.addEventListener('change',function(e){renderDbTrend(e.target.value);});
   document.getElementById('gap-cnt').textContent = gapData.length;
   $(document).ready(function(){
     $('#opt-tbl').DataTable({
-      pageLength:20,
-      order:[[7,'desc']],
-      language:{url:'//cdn.datatables.net/plug-ins/1.13.8/i18n/zh.json'},
+      pageLength: 20,
+      lengthMenu: [[10,20,50,100,-1],[10,20,50,100,'全部']],
+      order: [[7,'desc']],
+      dom: '<"d-flex justify-content-between align-items-center mb-2"lf>tip',
+      language: {
+        lengthMenu: '每页显示 _MENU_ 条',
+        zeroRecords: '没有找到匹配数据',
+        info: '第 _PAGE_ / _PAGES_ 页，共 _TOTAL_ 条',
+        infoEmpty: '无数据',
+        infoFiltered: '（从 _MAX_ 条中过滤）',
+        search: '搜索：',
+        paginate: { first:'首页', last:'末页', next:'下一页', previous:'上一页' }
+      },
       columnDefs:[{targets:[0],width:'280px'}]
     });
   });
@@ -1501,9 +1526,19 @@ dbSel.addEventListener('change',function(e){renderDbTrend(e.target.value);});
     });
     $(document).ready(function(){
       $('#ads-pivot-tbl').DataTable({
-        pageLength:20,
-        order:[[4,'desc']],
-        language:{url:'//cdn.datatables.net/plug-ins/1.13.8/i18n/zh.json'},
+        pageLength: 20,
+        lengthMenu: [[10,20,50,100,-1],[10,20,50,100,'全部']],
+        order: [[4,'desc']],
+        dom: '<"d-flex justify-content-between align-items-center mb-2"lf>tip',
+        language: {
+          lengthMenu: '每页显示 _MENU_ 条',
+          zeroRecords: '没有找到匹配数据',
+          info: '第 _PAGE_ / _PAGES_ 页，共 _TOTAL_ 条',
+          infoEmpty: '无数据',
+          infoFiltered: '（从 _MAX_ 条中过滤）',
+          search: '搜索：',
+          paginate: { first:'首页', last:'末页', next:'下一页', previous:'上一页' }
+        },
         columnDefs:[{targets:[0,8],width:'260px'}]
       });
     });
@@ -1636,17 +1671,17 @@ def build_html(stats, progress, res_data, gap_df, queue_data, sql_opt, ads_pivot
         '__TOP_MEM__':    j(res_data['top_mem']),
         '__DB_RES__':     j(res_data['db_res']),
         '__HOURLY_CON__': j(res_data['hourly_concurrent']),
-        '__GAP_DATA__':   j(gap_df.to_dict('records')),
+        '__GAP_DATA__':   j(gap_df.head(200).to_dict('records')),
         '__QUEUE_WAIT__': j(queue_data),
         '__LAYER_AVG__':  j(layer_avg.to_dict('records')),
         '__SLA_FAIL_DATA__':    j(sla_fail.to_dict('records')),
-        '__SQL_OPT__':          j(sql_opt),
+        '__SQL_OPT__':          j(sql_opt[:10]),
         '__ADS_TOTAL__':        str(ads_pivot[3]['total_pivot']),
         '__ADS_HIGH__':         str(ads_pivot[3]['high_risk']),
         '__ADS_MID__':          str(ads_pivot[3]['mid_risk']),
         '__ADS_LOW__':          str(ads_pivot[3]['low_risk']),
         '__ADS_MAX__':          str(ads_pivot[3]['max_downstream']),
-        '__ADS_PIVOT_LIST__':   j(ads_pivot[0]),
+        '__ADS_PIVOT_LIST__':   j(ads_pivot[0][:200]),
         '__ADS_BY_DB__':        j(ads_pivot[1]),
         '__ADS_RISK_MATRIX__':  j(ads_pivot[2]),
     }
@@ -1655,6 +1690,51 @@ def build_html(stats, progress, res_data, gap_df, queue_data, sql_opt, ads_pivot
     for k, v in replacements.items():
         html = html.replace(k, v)
     return html
+
+# ─────────────────────────────────────────────
+# 导出 Excel
+# ─────────────────────────────────────────────
+def export_data(gap_df, ads_pivot, sql_opt):
+    os.makedirs(EXPORT_DIR, exist_ok=True)
+
+    # 1. 调度配置 Gap 优化建议（最小空闲 >= 30 分钟）
+    gap_export = gap_df[gap_df['最小空闲(分)'] >= 30].copy()
+    gap_path = os.path.join(EXPORT_DIR, '调度配置Gap优化建议_30min以上.xlsx')
+    gap_export.to_excel(gap_path, index=False)
+    print(f"  已导出 Gap 优化建议 ({len(gap_export)} 行): {gap_path}")
+
+    # 2. 伪中间层作业明细
+    pivot_records = ads_pivot[0]
+    df_pivot = pd.DataFrame(pivot_records)
+    # downstream_names 是 list，转为逗号分隔字符串
+    if 'downstream_names' in df_pivot.columns:
+        df_pivot['downstream_names'] = df_pivot['downstream_names'].apply(
+            lambda x: ', '.join(x) if isinstance(x, list) else x
+        )
+    pivot_path = os.path.join(EXPORT_DIR, '伪中间层作业明细.xlsx')
+    df_pivot.to_excel(pivot_path, index=False)
+    print(f"  已导出 伪中间层作业明细 ({len(df_pivot)} 行): {pivot_path}")
+
+    # 3. 高耗时作业 SQL 优化分析
+    sql_records = []
+    for item in sql_opt:
+        sql_records.append({
+            '作业名':     item.get('job_name', ''),
+            '所属库':     item.get('db_name', ''),
+            '平均耗时(分)': item.get('avg_dur', ''),
+            'P90耗时(分)': item.get('p90_dur', ''),
+            '内存(GB·h)': item.get('total_mem', ''),
+            '运行次数':    item.get('runs', ''),
+            '诊断问题':   '\n'.join(item.get('issues', [])),
+            '优化建议':   '\n'.join(item.get('suggestions', [])),
+            'SQL优化示例': item.get('opt_sql', ''),
+            'SQL片段':    item.get('snippet', ''),
+        })
+    df_sql_opt = pd.DataFrame(sql_records)
+    sql_path = os.path.join(EXPORT_DIR, '高耗时作业SQL优化分析.xlsx')
+    df_sql_opt.to_excel(sql_path, index=False)
+    print(f"  已导出 高耗时作业SQL优化分析 ({len(df_sql_opt)} 行): {sql_path}")
+
 
 # ─────────────────────────────────────────────
 # main
@@ -1669,7 +1749,7 @@ def main():
     res_data   = resource_analysis(df_res)
     gap_df     = gap_analysis(df_meta, succ)
     queue_data = queue_wait_analysis(hist)
-    sql_opt    = sql_optimization_analysis(df_res, df_sql)
+    sql_opt    = sql_optimization_analysis(df_history, df_res, df_sql)
     ads_pivot  = ads_pivot_analysis(df_meta, df_res)
 
     gen_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -1679,6 +1759,10 @@ def main():
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write(html)
     print(f"\n✅ 报告已生成: {out_path}")
+
+    print("\n[导出 Excel] 开始导出...")
+    export_data(gap_df, ads_pivot, sql_opt)
+    print(f"✅ Excel 文件已全部导出至: {EXPORT_DIR}")
 
 
 if __name__ == '__main__':
