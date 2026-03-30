@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>调度瓶颈分析报告 · 导航</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #161b2e;
+    --surface: #1e2440;
+    --border: #2c3458;
+    --accent: #5b8df6;
+    --accent-dim: rgba(91,141,246,0.12);
+    --text: #dce3f5;
+    --muted: #7a84a8;
+    --green: #3ecf8e;
+    --green-dim: rgba(62,207,142,0.1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', 'PingFang SC', 'Helvetica Neue', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    box-shadow: 0 0 32px rgba(79,142,247,0.3);
+  }
+
+  .logo svg {
+    width: 26px;
+    height: 26px;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 400;
+    margin-bottom: 48px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    width: 100%;
+    max-width: 680px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent-dim);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(79,142,247,0.15);
+  }
+
+  .card:hover::before { opacity: 1; }
+
+  .card.latest { border-color: rgba(52,211,153,0.4); }
+  .card.latest::before { background: var(--green-dim); }
+  .card.latest:hover { border-color: var(--green); box-shadow: 0 8px 32px rgba(52,211,153,0.15); }
+
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(79,142,247,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .card.latest .card-icon {
+    background: var(--green-dim);
+    border-color: rgba(52,211,153,0.2);
+  }
+
+  .card-icon svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .card.latest .card-icon svg { stroke: var(--green); }
+
+  .card-body { flex: 1; min-width: 0; }
+
+  .card-date {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .card.latest .card-date { color: var(--green); }
+
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .card-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 10px;
+    background: var(--green-dim);
+    color: var(--green);
+    border: 1px solid rgba(52,211,153,0.25);
+  }
+
+  .arrow {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 1.1rem;
+    transition: color 0.2s, transform 0.2s;
+  }
+
+  .card:hover .arrow {
+    color: var(--text);
+    transform: translateY(-50%) translateX(3px);
+  }
+
+  .section-label {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .section-label span {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .section-gap {
+    height: 32px;
+  }
+
+  .footer {
+    margin-top: 48px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-align: center;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+
+<div class="logo">
+  <svg viewBox="0 0 24 24">
+    <path d="M3 3v18h18"/>
+    <path d="M7 16l4-4 4 4 4-6"/>
+  </svg>
+</div>
+
+<h1>调度瓶颈分析报告</h1>
+<p class="subtitle">Schedule Bottleneck Analysis · 选择日期查看详细报告</p>
+
+<div class="section-label"><span>对比分析</span></div>
+
+<div class="grid">
+  <a class="card" href="compare.html" target="_blank" rel="noopener" style="grid-column: 1 / -1;">
+    <div class="card-icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M18 20V10M12 20V4M6 20v-6"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <div class="card-date">多 期 对 比</div>
+      <div class="card-title">报告对比分析</div>
+      <div class="card-desc">选择两个日期，横向对比各模块改进效果</div>
+    </div>
+    <span class="arrow">→</span>
+  </a>
+</div>
+
+<div class="section-gap"></div>
+<div class="section-label"><span>历史报告</span></div>
+
+<div class="grid">
+
+  <a class="card latest" href="schedule_report/20260330/result_report.html" target="_blank" rel="noopener">
+    <div class="card-icon">
+      <svg viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <path d="M16 2v4M8 2v4M3 10h18"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <div class="card-date">2026 · 03 · 30</div>
+      <div class="card-title">最新报告</div>
+      <div class="card-desc">基于 2026-03-29 调度数据</div>
+      <span class="badge">Latest</span>
+    </div>
+    <span class="arrow">→</span>
+  </a>
+
+  <a class="card" href="schedule_report/20260324/result_report.html" target="_blank" rel="noopener">
+    <div class="card-icon">
+      <svg viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <path d="M16 2v4M8 2v4M3 10h18"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <div class="card-date">2026 · 03 · 24</div>
+      <div class="card-title">历史报告</div>
+      <div class="card-desc">基于 2026-03-23 调度数据</div>
+    </div>
+    <span class="arrow">→</span>
+  </a>
+
+  <a class="card" href="schedule_report/20260318/result_report.html" target="_blank" rel="noopener">
+    <div class="card-icon">
+      <svg viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <path d="M16 2v4M8 2v4M3 10h18"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <div class="card-date">2026 · 03 · 18</div>
+      <div class="card-title">历史报告</div>
+      <div class="card-desc">基于 2026-03-18 调度数据</div>
+    </div>
+    <span class="arrow">→</span>
+  </a>
+
+</div>
+
+<div class="footer">
+  调度作业全面瓶颈分析 · Fraud Report Project
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>调度报告对比分析</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #161b2e;
+  --surface: #1e2440;
+  --surface2: #252c4a;
+  --border: #2c3458;
+  --accent: #5b8df6;
+  --text: #dce3f5;
+  --muted: #7a84a8;
+  --green: #3ecf8e;
+  --red: #f66b6b;
+  --yellow: #f6c54b;
+  --nav-h: 60px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', 'PingFang SC', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── NAVBAR ── */
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  height: var(--nav-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 28px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.3);
+}
+.navbar .brand { font-weight: 600; font-size: .95rem; display: flex; align-items: center; gap: 8px; }
+.navbar .brand svg { stroke: var(--accent); }
+.back-btn {
+  margin-left: auto;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 6px 14px; border-radius: 8px;
+  font-size: .8rem; cursor: pointer; text-decoration: none;
+  transition: border-color .2s;
+}
+.back-btn:hover { border-color: var(--accent); }
+
+/* ── DATE SELECTORS ── */
+.selector-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 28px;
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.selector-group { display: flex; align-items: center; gap: 10px; }
+.selector-group label { font-size: .8rem; color: var(--muted); font-weight: 500; }
+.date-select {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 14px; border-radius: 8px;
+  font-size: .85rem; cursor: pointer; outline: none;
+  transition: border-color .2s;
+}
+.date-select:focus { border-color: var(--accent); }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.dot-a { background: var(--accent); }
+.dot-b { background: var(--green); }
+.compare-btn {
+  background: linear-gradient(135deg, var(--accent), #7c3aed);
+  border: none; color: #fff; padding: 8px 20px; border-radius: 8px;
+  font-size: .85rem; font-weight: 500; cursor: pointer;
+  transition: opacity .2s; margin-left: auto;
+}
+.compare-btn:hover { opacity: .85; }
+
+/* ── STATUS BAR ── */
+#status-bar {
+  padding: 10px 28px;
+  font-size: .8rem; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  display: none;
+}
+#status-bar.visible { display: block; }
+
+/* ── CONTENT ── */
+.content { max-width: 1500px; margin: 0 auto; padding: 24px 24px; }
+
+/* ── SECTION ── */
+.section { margin-bottom: 28px; }
+.section-title {
+  font-size: .78rem; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 14px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── KPI COMPARE GRID ── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.kpi-label { font-size: .75rem; color: var(--muted); margin-bottom: 10px; font-weight: 500; }
+.kpi-row { display: flex; align-items: center; justify-content: space-between; }
+.kpi-val-wrap { text-align: center; flex: 1; }
+.kpi-date { font-size: .65rem; color: var(--muted); margin-bottom: 3px; }
+.kpi-num { font-size: 1.5rem; font-weight: 700; }
+.kpi-num.accent { color: var(--accent); }
+.kpi-num.green { color: var(--green); }
+.kpi-num.red { color: var(--red); }
+.kpi-num.yellow { color: var(--yellow); }
+.kpi-arrow { font-size: 1.2rem; color: var(--muted); padding: 0 6px; }
+.kpi-delta {
+  font-size: .7rem; font-weight: 600; margin-top: 4px;
+  padding: 2px 7px; border-radius: 10px; display: inline-block;
+}
+.delta-up   { background: rgba(62,207,142,.12); color: var(--green); }
+.delta-down { background: rgba(246,107,107,.12); color: var(--red); }
+.delta-flat { background: rgba(122,132,168,.12); color: var(--muted); }
+
+/* ── CHART SECTIONS ── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.chart-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.chart-box-full {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.progress-controls {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.ctrl-group { display: flex; flex-direction: column; gap: 6px; }
+.ctrl-label { font-size: .75rem; font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+.ctrl-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 6px 32px 6px 12px;
+  font-size: .85rem;
+  min-width: 180px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237a84a8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  outline: none;
+  transition: border-color .2s;
+}
+.ctrl-select:hover, .ctrl-select:focus { border-color: var(--accent); }
+.mode-tabs { display: flex; gap: 4px; }
+.mode-tab {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--muted);
+  padding: 6px 14px;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .18s;
+  white-space: nowrap;
+}
+.mode-tab:hover { border-color: var(--accent); color: var(--text); }
+.mode-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chart-box-title {
+  font-size: .8rem; font-weight: 600; color: var(--muted);
+  margin-bottom: 12px;
+}
+.chart { width: 100%; height: 280px; }
+.chart-tall { width: 100%; height: 340px; }
+
+/* ── SLA TABLE ── */
+.sla-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.sla-table th {
+  background: var(--surface2); color: var(--muted);
+  font-weight: 600; padding: 8px 12px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.sla-table td { padding: 7px 12px; border-bottom: 1px solid rgba(44,52,88,.5); }
+.sla-table tr:hover td { background: rgba(91,141,246,.04); }
+.tag-a { color: var(--accent); font-weight: 600; }
+.tag-b { color: var(--green); font-weight: 600; }
+.tag-resolved { background: rgba(62,207,142,.1); color: var(--green); padding: 2px 7px; border-radius: 8px; font-size: .7rem; }
+.tag-persist  { background: rgba(246,107,107,.1); color: var(--red);  padding: 2px 7px; border-radius: 8px; font-size: .7rem; }
+.tag-new      { background: rgba(246,197,75,.12); color: var(--yellow); padding: 2px 7px; border-radius: 8px; font-size: .7rem; }
+
+/* ── INSIGHT PANELS ── */
+.insight-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.insight-panel-title {
+  font-size: .75rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.insight-panel-title svg { stroke: var(--muted); flex-shrink: 0; }
+
+.insight-rows { display: flex; flex-direction: column; gap: 8px; }
+.insight-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 14px; border-radius: 8px; font-size: .84rem; line-height: 1.6;
+}
+.insight-row.good  { background: rgba(62,207,142,.07); border-left: 3px solid var(--green); }
+.insight-row.bad   { background: rgba(246,107,107,.07); border-left: 3px solid var(--red); }
+.insight-row.warn  { background: rgba(246,197,75,.07); border-left: 3px solid var(--yellow); }
+.insight-row.info  { background: rgba(91,141,246,.07); border-left: 3px solid var(--accent); }
+
+.insight-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+.insight-text { flex: 1; color: var(--text); }
+.insight-text strong { font-weight: 600; }
+.insight-text .hl-green  { color: var(--green);  font-weight: 600; }
+.insight-text .hl-red    { color: var(--red);    font-weight: 600; }
+.insight-text .hl-yellow { color: var(--yellow); font-weight: 600; }
+.insight-text .hl-blue   { color: var(--accent); font-weight: 600; }
+
+/* executive summary */
+.exec-summary {
+  background: linear-gradient(135deg, rgba(91,141,246,.08), rgba(62,207,142,.05));
+  border: 1px solid rgba(91,141,246,.25);
+  border-radius: 14px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+}
+.exec-summary-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+}
+.exec-summary-header h2 { font-size: 1rem; font-weight: 700; }
+.exec-summary-header .period {
+  margin-left: auto; font-size: .78rem; color: var(--muted);
+  background: var(--surface2); padding: 4px 12px; border-radius: 20px;
+  border: 1px solid var(--border);
+}
+.exec-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.exec-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 20px; font-size: .8rem; font-weight: 500;
+}
+.exec-chip.good { background: rgba(62,207,142,.12); color: var(--green); border: 1px solid rgba(62,207,142,.2); }
+.exec-chip.bad  { background: rgba(246,107,107,.12); color: var(--red);   border: 1px solid rgba(246,107,107,.2); }
+.exec-chip.warn { background: rgba(246,197,75,.12);  color: var(--yellow);border: 1px solid rgba(246,197,75,.2); }
+.exec-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.exec-note { font-size: .8rem; color: var(--muted); line-height: 1.7; }
+
+/* inline insight below chart */
+.chart-insight {
+  margin-top: 10px; padding: 10px 14px;
+  background: rgba(91,141,246,.05); border-radius: 8px;
+  font-size: .8rem; color: var(--muted); line-height: 1.7;
+}
+.chart-insight strong { color: var(--text); }
+
+/* ── PLACEHOLDER ── */
+#placeholder {
+  text-align: center; padding: 80px 20px; color: var(--muted);
+}
+#placeholder svg { stroke: var(--border); margin-bottom: 16px; }
+#placeholder p { font-size: .9rem; }
+
+/* ── LOADING ── */
+#loading {
+  text-align: center; padding: 60px 20px; color: var(--muted);
+  display: none;
+}
+.spinner {
+  width: 36px; height: 36px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .8s linear infinite; margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 768px) {
+  .chart-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .exec-chips { gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <div class="brand">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-6"/>
+    </svg>
+    调度报告对比分析
+  </div>
+  <a class="back-btn" href="index.html">← 返回首页</a>
+</div>
+
+<div class="selector-bar">
+  <div class="selector-group">
+    <span class="dot dot-a"></span>
+    <label>基准期</label>
+    <select class="date-select" id="sel-a">
+      <option value="schedule_report/20260318/summary.json">2026-03-18</option>
+      <option value="schedule_report/20260324/summary.json">2026-03-24</option>
+      <option value="schedule_report/20260330/summary.json">2026-03-30</option>
+    </select>
+  </div>
+  <div class="selector-group">
+    <span class="dot dot-b"></span>
+    <label>对比期</label>
+    <select class="date-select" id="sel-b">
+      <option value="schedule_report/20260318/summary.json">2026-03-18</option>
+      <option value="schedule_report/20260324/summary.json">2026-03-24</option>
+      <option value="schedule_report/20260330/summary.json" selected>2026-03-30</option>
+    </select>
+  </div>
+  <button class="compare-btn" onclick="runCompare()">开始对比</button>
+</div>
+
+<div id="status-bar"></div>
+
+<div class="content">
+  <div id="placeholder">
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-6"/>
+    </svg>
+    <p>选择两个日期后点击「开始对比」</p>
+  </div>
+  <div id="loading"><div class="spinner"></div><p>加载数据中…</p></div>
+  <div id="result" style="display:none"></div>
+</div>
+
+<script>
+const PALETTE_A = '#5b8df6';
+const PALETTE_B = '#3ecf8e';
+
+let dataA = null, dataB = null;
+
+async function loadJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('无法加载 ' + url);
+  return r.json();
+}
+
+async function runCompare() {
+  const urlA = document.getElementById('sel-a').value;
+  const urlB = document.getElementById('sel-b').value;
+  if (urlA === urlB) { alert('请选择不同的两个日期'); return; }
+
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+
+  try {
+    [dataA, dataB] = await Promise.all([loadJson(urlA), loadJson(urlB)]);
+    renderAll(dataA, dataB);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('result').style.display = 'block';
+    setStatus('对比完成 · 基准期: ' + dataA.date_label + ' · 对比期: ' + dataB.date_label);
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('placeholder').style.display = 'block';
+    alert('加载失败: ' + e.message);
+  }
+}
+
+function setStatus(msg) {
+  const el = document.getElementById('status-bar');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+// ── delta helpers ──
+function deltaClass(val, higherIsBetter) {
+  if (val === 0) return 'delta-flat';
+  return (val > 0) === higherIsBetter ? 'delta-up' : 'delta-down';
+}
+function deltaSign(val) { return val > 0 ? '+' : ''; }
+function deltaHtml(a, b, higherIsBetter, fmt) {
+  const d = b - a;
+  if (isNaN(d)) return '';
+  const cls = deltaClass(d, higherIsBetter);
+  const label = fmt ? fmt(d) : (deltaSign(d) + d.toFixed(1));
+  return `<div class="kpi-delta ${cls}">${label}</div>`;
+}
+
+function numColor(v, ref, higherIsBetter) {
+  if (v === ref) return 'accent';
+  return (v > ref) === higherIsBetter ? 'green' : 'red';
+}
+
+// ── KPI card ──
+function kpiCard(label, a, b, higherIsBetter, fmt) {
+  const fmtVal = fmt || (v => v.toLocaleString());
+  const colA = 'accent';
+  const colB = numColor(b, a, higherIsBetter);
+  const d = b - a;
+  const cls = deltaClass(d, higherIsBetter);
+  const dlabel = fmt ? fmt(d) : (deltaSign(d) + (Number.isInteger(d) ? d : d.toFixed(1)));
+  return `
+  <div class="kpi-card">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-row">
+      <div class="kpi-val-wrap">
+        <div class="kpi-date">${dataA.date_label}</div>
+        <div class="kpi-num ${colA}">${fmtVal(a)}</div>
+      </div>
+      <div class="kpi-arrow">→</div>
+      <div class="kpi-val-wrap">
+        <div class="kpi-date">${dataB.date_label}</div>
+        <div class="kpi-num ${colB}">${fmtVal(b)}</div>
+        <div class="kpi-delta ${cls}">${dlabel}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── echart helper ──
+let charts = [];
+function makeChart(id, option) {
+  const existing = echarts.getInstanceByDom(document.getElementById(id));
+  if (existing) existing.dispose();
+  const c = echarts.init(document.getElementById(id), 'dark');
+  c.setOption(option);
+  charts.push(c);
+  return c;
+}
+
+// ── render ──
+function renderAll(a, b) {
+  const el = document.getElementById('result');
+  el.innerHTML = buildHTML(a, b);
+  setTimeout(() => {
+    renderExecSummary(a, b);
+    renderKpiChanges(a, b);
+    renderLayerProgress(a, b);
+    renderInsightProgress(a, b);
+    renderHourlyConcurrent(a, b);
+    renderQueueWait(a, b);
+    renderInsightQueue(a, b);
+    renderLayerDist(a, b);
+    renderDbRes(a, b);
+    renderInsightResource(a, b);
+    renderSlaTable(a, b);
+    renderInsightSla(a, b);
+    renderGapAds(a, b);
+    renderInsightGap(a, b);
+  }, 50);
+}
+
+function buildHTML(a, b) {
+  return `
+  <!-- ── 综合摘要 ── -->
+  <div id="exec-summary-wrap"></div>
+
+  <div class="section">
+    <div class="section-title">核心 KPI 对比</div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">小时完成率对比（1~10点）</div>
+    <div class="progress-controls">
+      <div class="ctrl-group">
+        <label class="ctrl-label">对比粒度</label>
+        <div class="mode-tabs" id="mode-tabs">
+          <button class="mode-tab active" data-mode="all">全库整体</button>
+          <button class="mode-tab" data-mode="dw">数仓整体</button>
+          <button class="mode-tab" data-mode="db">单库全层</button>
+          <button class="mode-tab" data-mode="dblayer">单库单层</button>
+        </div>
+      </div>
+      <div class="ctrl-group" id="ctrl-db" style="display:none">
+        <label class="ctrl-label">选择库</label>
+        <select id="sel-db" class="ctrl-select"></select>
+      </div>
+      <div class="ctrl-group" id="ctrl-layer" style="display:none">
+        <label class="ctrl-label">选择层级</label>
+        <select id="sel-layer" class="ctrl-select"></select>
+      </div>
+    </div>
+    <div class="chart-box-full">
+      <div id="c-progress-compare" class="chart" style="height:320px"></div>
+    </div>
+    <div id="insight-progress" class="insight-panel"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">调度排队 & 并发对比</div>
+    <div class="chart-grid">
+      <div class="chart-box">
+        <div class="chart-box-title">每小时并发作业数</div>
+        <div id="c-hourly" class="chart"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">每小时平均排队等待（分钟）</div>
+        <div id="c-queue" class="chart"></div>
+      </div>
+    </div>
+    <div id="insight-queue" class="insight-panel" style="margin-top:16px"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">库层分布 & 资源消耗对比</div>
+    <div class="chart-grid">
+      <div class="chart-box">
+        <div class="chart-box-title">分层作业数分布</div>
+        <div id="c-layer-dist" class="chart-tall"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">资源消耗 Top10 库（内存·h）</div>
+        <div id="c-db-res" class="chart-tall"></div>
+      </div>
+    </div>
+    <div id="insight-resource" class="insight-panel" style="margin-top:16px"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">SLA 未达标库层变化</div>
+    <div class="chart-box-full">
+      <table class="sla-table" id="sla-table">
+        <thead>
+          <tr>
+            <th>库名</th><th>分层</th>
+            <th>${a.date_label} 9点完成率</th><th>${a.date_label} 10点完成率</th>
+            <th>${b.date_label} 9点完成率</th><th>${b.date_label} 10点完成率</th>
+            <th>变化</th>
+          </tr>
+        </thead>
+        <tbody id="sla-tbody"></tbody>
+      </table>
+    </div>
+    <div id="insight-sla" class="insight-panel"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Gap 优化 & 伪中间层 & 队列分布</div>
+    <div class="chart-grid">
+      <div class="chart-box">
+        <div class="chart-box-title">调度 Gap 优化数（≥30min）& 伪中间层</div>
+        <div id="c-gap-ads" class="chart"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">队列分布对比</div>
+        <div id="c-queue-dist" class="chart"></div>
+      </div>
+    </div>
+    <div id="insight-gap" class="insight-panel" style="margin-top:16px"></div>
+  </div>
+  `;
+}
+
+// ── KPI grid ──
+function renderKpiChanges(a, b) {
+  const el = document.getElementById('kpi-grid');
+  el.innerHTML = [
+    kpiCard('活跃作业总数', a.total_jobs, b.total_jobs, true, v => (v>0?'+':'')+v),
+    kpiCard('有上游依赖比例 (%)', a.dep_rate, b.dep_rate, true, v => (v>0?'+':'')+v.toFixed(1)+'%'),
+    kpiCard('SLA 达标组合 (≥90%@9点)', a.sla_ok, b.sla_ok, true, v => (v>0?'+':'')+v),
+    kpiCard('SLA 未达标组合 (<80%@10点)', a.sla_fail, b.sla_fail, false, v => (v>0?'+':'')+v),
+    kpiCard('Gap优化作业数 (≥30min)', a.gap_30_count, b.gap_30_count, false, v => (v>0?'+':'')+v),
+    kpiCard('伪中间层作业数', a.ads_total, b.ads_total, false, v => (v>0?'+':'')+v),
+    kpiCard('高危伪中间层 (下游≥20)', a.ads_high, b.ads_high, false, v => (v>0?'+':'')+v),
+    kpiCard('开启自依赖作业数', a.self_rely, b.self_rely, null, v => (v>0?'+':'')+v),
+  ].join('');
+}
+
+// ── layer progress (multi-mode drill-down) ──
+let _progressA = null, _progressB = null, _progressMode = 'all';
+
+const LAYER_ORDER = ['ads','dwd','dts','ods','dim','tms'];
+const LAYER_COLORS = ['#5b8df6','#3ecf8e','#f6c54b','#f66b6b','#b06ef6','#58d9f9'];
+
+function initProgressControls(a, b) {
+  _progressA = a; _progressB = b;
+
+  // populate db selector
+  const dbSet = new Set([...(a.db_list || []), ...(b.db_list || [])]);
+  const dbs = [...dbSet].sort();
+  const selDb = document.getElementById('sel-db');
+  selDb.innerHTML = dbs.map(d => `<option value="${d}">${d}</option>`).join('');
+  const preferDb = dbs.find(d => (a.chart_data||{})[d]?.ads || (b.chart_data||{})[d]?.ads) || dbs[0];
+  selDb.value = preferDb;
+  updateLayerOptions(preferDb);
+
+  // mode tabs
+  document.getElementById('mode-tabs').addEventListener('click', e => {
+    const btn = e.target.closest('.mode-tab');
+    if (!btn) return;
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    _progressMode = btn.dataset.mode;
+    updateControlVisibility();
+    drawProgressCompare();
+  });
+
+  selDb.addEventListener('change', () => { updateLayerOptions(selDb.value); drawProgressCompare(); });
+  document.getElementById('sel-layer').addEventListener('change', drawProgressCompare);
+
+  updateControlVisibility();
+  drawProgressCompare();
+}
+
+function updateControlVisibility() {
+  const showDb = _progressMode === 'db' || _progressMode === 'dblayer';
+  document.getElementById('ctrl-db').style.display    = showDb ? '' : 'none';
+  document.getElementById('ctrl-layer').style.display = (_progressMode === 'dblayer') ? '' : 'none';
+}
+
+function updateLayerOptions(db) {
+  const a = _progressA, b = _progressB;
+  const selLayer = document.getElementById('sel-layer');
+  const layerSet = new Set([
+    ...Object.keys((a.chart_data||{})[db] || {}),
+    ...Object.keys((b.chart_data||{})[db] || {}),
+  ]);
+  const layers = LAYER_ORDER.filter(l => layerSet.has(l));
+  [...layerSet].sort().forEach(l => { if (!layers.includes(l)) layers.push(l); });
+  const prev = selLayer.value;
+  selLayer.innerHTML = layers.map(l => `<option value="${l}">${l}</option>`).join('');
+  if (layers.includes(prev)) selLayer.value = prev;
+}
+
+// 数仓库判断：dws_* 且排除非业务库
+const DW_EXCLUDE = new Set(['dws_pspg', 'dws_test']);
+function isDwDb(db) {
+  return typeof db === 'string' && db.startsWith('dws_') && !DW_EXCLUDE.has(db);
+}
+
+// compute overall average across all layers for a given data snapshot
+function overallAvg(data) {
+  const hours = [1,2,3,4,5,6,7,8,9,10];
+  return hours.map(h => {
+    const vals = (data.layer_avg || []).map(r => r['h'+h]).filter(v => v != null);
+    return vals.length ? +(vals.reduce((s,v) => s+v, 0) / vals.length).toFixed(2) : null;
+  });
+}
+
+// compute average across 数仓 databases only
+function dwAvg(data) {
+  const hours = [1,2,3,4,5,6,7,8,9,10];
+  return hours.map(h => {
+    const vals = [];
+    Object.entries(data.chart_data || {}).forEach(([db, layers]) => {
+      if (!isDwDb(db)) return;
+      Object.values(layers).forEach(arr => {
+        if (arr[h-1] != null) vals.push(arr[h-1]);
+      });
+    });
+    return vals.length ? +(vals.reduce((s,v) => s+v, 0) / vals.length).toFixed(2) : null;
+  });
+}
+
+function drawProgressCompare() {
+  const a = _progressA, b = _progressB;
+  const hours = [1,2,3,4,5,6,7,8,9,10];
+  const xData = hours.map(h => h+'点');
+  const mode = _progressMode;
+
+  if (mode === 'all') {
+    // ── 全库整体：overall average, two lines + delta bars ──
+    const dA = overallAvg(a);
+    const dB = overallAvg(b);
+    const delta = dA.map((v, i) => (dB[i] != null && v != null) ? +(dB[i]-v).toFixed(2) : null);
+    makeChart('c-progress-compare', progressTwoLineOption(xData, a.date_label, dA, b.date_label, dB, delta));
+
+  } else if (mode === 'dw') {
+    // ── 数仓整体：average across dws_* databases (excl. dws_pspg / dws_test) ──
+    const dA = dwAvg(a);
+    const dB = dwAvg(b);
+    const delta = dA.map((v, i) => (dB[i] != null && v != null) ? +(dB[i]-v).toFixed(2) : null);
+    const dwDbsA = Object.keys(a.chart_data || {}).filter(isDwDb);
+    const dwDbsB = Object.keys(b.chart_data || {}).filter(isDwDb);
+    const subtitle = `数仓库（${[...new Set([...dwDbsA,...dwDbsB])].sort().join('、')}）`;
+    makeChart('c-progress-compare', progressTwoLineOption(xData, a.date_label, dA, b.date_label, dB, delta, subtitle));
+
+  } else if (mode === 'db') {
+    // ── 单库全层：average across all layers for selected db, two lines + delta ──
+    const db = document.getElementById('sel-db').value;
+    const dbAvg = (data) => {
+      const layerMap = (data.chart_data||{})[db] || {};
+      return hours.map(h => {
+        const vals = Object.values(layerMap).map(arr => arr[h-1]).filter(v => v != null);
+        return vals.length ? +(vals.reduce((s,v) => s+v, 0) / vals.length).toFixed(2) : null;
+      });
+    };
+    const dA = dbAvg(a), dB = dbAvg(b);
+    const delta = dA.map((v, i) => (dB[i] != null && v != null) ? +(dB[i]-v).toFixed(2) : null);
+    makeChart('c-progress-compare', progressTwoLineOption(xData, a.date_label, dA, b.date_label, dB, delta));
+
+  } else {
+    // ── 单库单层：two lines + delta ──
+    const db    = document.getElementById('sel-db').value;
+    const layer = document.getElementById('sel-layer').value;
+    const dA = hours.map(h => ((a.chart_data||{})[db]||{})[layer]?.[h-1] ?? null);
+    const dB = hours.map(h => ((b.chart_data||{})[db]||{})[layer]?.[h-1] ?? null);
+    const delta = dA.map((v, i) => (dB[i] != null && v != null) ? +(dB[i]-v).toFixed(2) : null);
+    makeChart('c-progress-compare', progressTwoLineOption(xData, a.date_label, dA, b.date_label, dB, delta));
+  }
+}
+
+function progressTwoLineOption(xData, nameA, dA, nameB, dB, delta, subtitle) {
+  const hasTitle = !!subtitle;
+  return {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis', formatter: p => p[0].axisValue+'<br>'+
+      p.filter(i=>i.value!=null).map(i=>`${i.marker}${i.seriesName}: ${i.value}%`).join('<br>') },
+    ...(hasTitle ? { title: { text: subtitle, textStyle: { fontSize: 11, color: '#7a84a8', fontWeight: 'normal' }, top: 4, left: 'center' } } : {}),
+    legend: { bottom: 0, textStyle: { fontSize: 11, color: '#7a84a8' } },
+    grid: { left: 52, right: 52, top: hasTitle ? 36 : 20, bottom: 40 },
+    xAxis: { type: 'category', data: xData, axisLabel: { fontSize: 11, color: '#7a84a8' } },
+    yAxis: [
+      { type: 'value', min: 0, max: 100,
+        axisLabel: { formatter: '{value}%', fontSize: 10, color: '#7a84a8' },
+        splitLine: { lineStyle: { color: '#2c3458' } } },
+      { type: 'value', name: '变化',
+        axisLabel: { formatter: '{value}%', fontSize: 10, color: '#7a84a8' },
+        splitLine: { show: false } },
+    ],
+    series: [
+      { name: nameA, type: 'line', yAxisIndex: 0, data: dA, smooth: true, symbol: 'circle', symbolSize: 5,
+        lineStyle: { color: PALETTE_A, width: 2.5 }, itemStyle: { color: PALETTE_A },
+        areaStyle: { color: PALETTE_A, opacity: .08 } },
+      { name: nameB, type: 'line', yAxisIndex: 0, data: dB, smooth: true, symbol: 'circle', symbolSize: 5,
+        lineStyle: { color: PALETTE_B, width: 2.5 }, itemStyle: { color: PALETTE_B },
+        areaStyle: { color: PALETTE_B, opacity: .08 } },
+      { name: '变化量', type: 'bar', yAxisIndex: 1, data: delta,
+        itemStyle: { color: v => v.value >= 0 ? 'rgba(62,207,142,.55)' : 'rgba(246,107,107,.55)', borderRadius: [3,3,0,0] },
+        barMaxWidth: 28 },
+    ],
+  };
+}
+
+function renderLayerProgress(a, b) {
+  initProgressControls(a, b);
+}
+
+// ── hourly concurrent ──
+function renderHourlyConcurrent(a, b) {
+  const hrs = Array.from({length:24}, (_,i) => i);
+  makeChart('c-hourly', {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis' },
+    legend: { bottom: 0, textStyle: { fontSize: 11, color: '#7a84a8' } },
+    grid: { left: 50, right: 20, top: 20, bottom: 40 },
+    xAxis: { type: 'category', data: hrs.map(h=>h+':00'), axisLabel: { rotate: 45, fontSize: 9, color: '#7a84a8' } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 10, color: '#7a84a8' }, splitLine: { lineStyle: { color: '#2c3458' } } },
+    series: [
+      { name: a.date_label, type: 'bar', data: hrs.map(h => a.hourly_concurrent[String(h)] || 0),
+        itemStyle: { color: PALETTE_A, borderRadius: [3,3,0,0], opacity: .8 }, barGap: '-20%' },
+      { name: b.date_label, type: 'bar', data: hrs.map(h => b.hourly_concurrent[String(h)] || 0),
+        itemStyle: { color: PALETTE_B, borderRadius: [3,3,0,0], opacity: .8 } },
+    ],
+  });
+}
+
+// ── queue wait ──
+function renderQueueWait(a, b) {
+  const hrs = Array.from({length:24}, (_,i) => i);
+  const getQ = (d, h) => { const r = d.queue_wait_avg.find(x=>x.hour===h); return r ? r.avg_queue : 0; };
+  makeChart('c-queue', {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis', formatter: p => p[0].axisValue+'点<br>'+p.map(i=>`${i.marker}${i.seriesName}: ${i.value.toFixed(1)}分`).join('<br>') },
+    legend: { bottom: 0, textStyle: { fontSize: 11, color: '#7a84a8' } },
+    grid: { left: 50, right: 20, top: 20, bottom: 40 },
+    xAxis: { type: 'category', data: hrs.map(h=>h+':00'), axisLabel: { rotate: 45, fontSize: 9, color: '#7a84a8' } },
+    yAxis: { type: 'value', name: '分', axisLabel: { fontSize: 10, color: '#7a84a8' }, splitLine: { lineStyle: { color: '#2c3458' } } },
+    series: [
+      { name: a.date_label, type: 'line', data: hrs.map(h=>getQ(a,h)), smooth: true, symbol: 'none',
+        lineStyle: { color: PALETTE_A, width: 2 }, areaStyle: { color: PALETTE_A, opacity: .1 } },
+      { name: b.date_label, type: 'line', data: hrs.map(h=>getQ(b,h)), smooth: true, symbol: 'none',
+        lineStyle: { color: PALETTE_B, width: 2 }, areaStyle: { color: PALETTE_B, opacity: .1 } },
+    ],
+  });
+}
+
+// ── layer dist ──
+function renderLayerDist(a, b) {
+  const layers = ['ads','dwd','dts','ods','dim','tms'];
+  makeChart('c-layer-dist', {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { bottom: 0, textStyle: { fontSize: 11, color: '#7a84a8' } },
+    grid: { left: 50, right: 20, top: 20, bottom: 40 },
+    xAxis: { type: 'category', data: layers, axisLabel: { color: '#7a84a8' } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 10, color: '#7a84a8' }, splitLine: { lineStyle: { color: '#2c3458' } } },
+    series: [
+      { name: a.date_label, type: 'bar', data: layers.map(l => a.layer_dist[l] || 0),
+        itemStyle: { color: PALETTE_A, borderRadius: [4,4,0,0], opacity: .85 }, barGap: '10%' },
+      { name: b.date_label, type: 'bar', data: layers.map(l => b.layer_dist[l] || 0),
+        itemStyle: { color: PALETTE_B, borderRadius: [4,4,0,0], opacity: .85 } },
+    ],
+  });
+}
+
+// ── db resource ──
+function renderDbRes(a, b) {
+  const topDbs = [...new Set([...a.db_res.map(r=>r.db_name), ...b.db_res.map(r=>r.db_name)])].slice(0, 10);
+  const getM = (d, name) => { const r = d.db_res.find(x=>x.db_name===name); return r ? r.total_mem_gb_h : 0; };
+  makeChart('c-db-res', {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
+      formatter: p => p[0].name + '<br>' + p.map(i=>`${i.marker}${i.seriesName}: ${i.value} GB·h`).join('<br>') },
+    legend: { bottom: 0, textStyle: { fontSize: 11, color: '#7a84a8' } },
+    grid: { left: 10, right: 60, top: 20, bottom: 50, containLabel: true },
+    xAxis: { type: 'value', axisLabel: { fontSize: 10, color: '#7a84a8' }, splitLine: { lineStyle: { color: '#2c3458' } } },
+    yAxis: { type: 'category', data: [...topDbs].reverse(), axisLabel: { fontSize: 10, color: '#7a84a8' } },
+    series: [
+      { name: a.date_label, type: 'bar', data: [...topDbs].reverse().map(n=>getM(a,n)),
+        itemStyle: { color: PALETTE_A, borderRadius: [0,4,4,0], opacity: .85 }, barGap: '15%' },
+      { name: b.date_label, type: 'bar', data: [...topDbs].reverse().map(n=>getM(b,n)),
+        itemStyle: { color: PALETTE_B, borderRadius: [0,4,4,0], opacity: .85 } },
+    ],
+  });
+}
+
+// ── SLA table ──
+function renderSlaTable(a, b) {
+  const allKeys = {};
+  a.sla_fail_data.forEach(r => { allKeys[r.db_name+'|'+r.layer] = {a: r}; });
+  b.sla_fail_data.forEach(r => {
+    const k = r.db_name+'|'+r.layer;
+    if (!allKeys[k]) allKeys[k] = {};
+    allKeys[k].b = r;
+  });
+
+  const rows = Object.entries(allKeys).map(([k, v]) => {
+    const [db, layer] = k.split('|');
+    const ra = v.a, rb = v.b;
+    let tag, tagLabel;
+    if (ra && !rb)      { tag = 'tag-resolved'; tagLabel = '✓ 已改善'; }
+    else if (!ra && rb) { tag = 'tag-new';      tagLabel = '▲ 新增';  }
+    else                { tag = 'tag-persist';  tagLabel = '✗ 持续';  }
+    return `<tr>
+      <td>${db}</td><td>${layer}</td>
+      <td class="tag-a">${ra ? ra.h9.toFixed(1)+'%' : '—'}</td>
+      <td class="tag-a">${ra ? ra.h10.toFixed(1)+'%' : '—'}</td>
+      <td class="tag-b">${rb ? rb.h9.toFixed(1)+'%' : '—'}</td>
+      <td class="tag-b">${rb ? rb.h10.toFixed(1)+'%' : '—'}</td>
+      <td><span class="${tag}">${tagLabel}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('sla-tbody').innerHTML = rows ||
+    '<tr><td colspan="7" style="text-align:center;color:var(--green);padding:20px">两期均无 SLA 未达标组合</td></tr>';
+}
+
+// ── gap & ads + queue dist ──
+function renderGapAds(a, b) {
+  makeChart('c-gap-ads', {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { bottom: 0, textStyle: { fontSize: 11, color: '#7a84a8' } },
+    grid: { left: 50, right: 20, top: 20, bottom: 40 },
+    xAxis: { type: 'category', data: ['Gap优化(≥30min)', '伪中间层总数', '高危伪中间层', '中危伪中间层'],
+      axisLabel: { color: '#7a84a8', fontSize: 11 } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 10, color: '#7a84a8' }, splitLine: { lineStyle: { color: '#2c3458' } } },
+    series: [
+      { name: a.date_label, type: 'bar', barGap: '10%',
+        data: [a.gap_30_count, a.ads_total, a.ads_high, a.ads_mid],
+        itemStyle: { color: PALETTE_A, borderRadius: [4,4,0,0], opacity: .85 },
+        label: { show: true, position: 'top', fontSize: 11, color: '#dce3f5' } },
+      { name: b.date_label, type: 'bar',
+        data: [b.gap_30_count, b.ads_total, b.ads_high, b.ads_mid],
+        itemStyle: { color: PALETTE_B, borderRadius: [4,4,0,0], opacity: .85 },
+        label: { show: true, position: 'top', fontSize: 11, color: '#dce3f5' } },
+    ],
+  });
+
+  const queues = [...new Set([...Object.keys(a.queue_dist), ...Object.keys(b.queue_dist)])];
+  makeChart('c-queue-dist', {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { bottom: 0, textStyle: { fontSize: 11, color: '#7a84a8' } },
+    grid: { left: 50, right: 20, top: 20, bottom: 40 },
+    xAxis: { type: 'category', data: queues, axisLabel: { color: '#7a84a8' } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 10, color: '#7a84a8' }, splitLine: { lineStyle: { color: '#2c3458' } } },
+    series: [
+      { name: a.date_label, type: 'bar', data: queues.map(q => a.queue_dist[q] || 0),
+        itemStyle: { color: PALETTE_A, borderRadius: [4,4,0,0], opacity: .85 }, barGap: '10%' },
+      { name: b.date_label, type: 'bar', data: queues.map(q => b.queue_dist[q] || 0),
+        itemStyle: { color: PALETTE_B, borderRadius: [4,4,0,0], opacity: .85 } },
+    ],
+  });
+}
+
+// ── helpers ──
+function pct(v) { return v.toFixed(1) + '%'; }
+function pp(v)  { return (v >= 0 ? '+' : '') + v.toFixed(1) + 'pp'; }
+function num(v) { return (v >= 0 ? '+' : '') + v; }
+function abs(v) { return Math.abs(v).toFixed(1); }
+function sign(v){ return v >= 0 ? '↑' : '↓'; }
+
+function insightRow(type, icon, html) {
+  return `<div class="insight-row ${type}"><div class="insight-icon">${icon}</div><div class="insight-text">${html}</div></div>`;
+}
+
+function insightPanel(title, rows) {
+  return `
+  <div class="insight-panel-title">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+    </svg>
+    ${title}
+  </div>
+  <div class="insight-rows">${rows.join('')}</div>`;
+}
+
+// ── Executive Summary ──
+function renderExecSummary(a, b) {
+  const qA = Math.max(...a.queue_wait_avg.map(x=>x.avg_queue));
+  const qB = Math.max(...b.queue_wait_avg.map(x=>x.avg_queue));
+  const qDelta = ((qB - qA) / qA * 100).toFixed(1);
+
+  const adsA = a.layer_avg.find(r=>r.layer==='ads') || {};
+  const adsB = b.layer_avg.find(r=>r.layer==='ads') || {};
+  const h9delta = ((adsB.h9||0) - (adsA.h9||0)).toFixed(2);
+
+  const slaOkDelta = b.sla_ok - a.sla_ok;
+  const slaFailDelta = b.sla_fail - a.sla_fail;
+  const queueBKeys = Object.keys(b.queue_dist);
+  const limitGone = (a.queue_dist['limit'] && !b.queue_dist['limit']);
+
+  const chips = [];
+  if (qDelta < 0) chips.push({cls:'good', icon:'⚡', text:`高峰排队降低 ${Math.abs(qDelta)}%`});
+  else            chips.push({cls:'bad',  icon:'⚠', text:`高峰排队上升 ${Math.abs(qDelta)}%`});
+  if (slaOkDelta > 0) chips.push({cls:'good', icon:'✓', text:`SLA 达标 +${slaOkDelta} 组合`});
+  else if (slaOkDelta < 0) chips.push({cls:'bad', icon:'✗', text:`SLA 达标 ${slaOkDelta} 组合`});
+  if (slaFailDelta > 0) chips.push({cls:'bad',  icon:'↑', text:`SLA 未达标 +${slaFailDelta} 组合`});
+  else if (slaFailDelta < 0) chips.push({cls:'good', icon:'↓', text:`SLA 未达标 ${Math.abs(slaFailDelta)} 组合`});
+  if (h9delta > 0) chips.push({cls:'good', icon:'📈', text:`ads 层 9点完成率 +${h9delta}pp`});
+  else             chips.push({cls:'bad',  icon:'📉', text:`ads 层 9点完成率 ${h9delta}pp`});
+  if (limitGone) chips.push({cls:'good', icon:'🎉', text:'limit 队列已清零'});
+
+  const resolvedSla = a.sla_fail_data.filter(ra =>
+    !b.sla_fail_data.find(rb => rb.db_name===ra.db_name && rb.layer===ra.layer));
+  const newSla = b.sla_fail_data.filter(rb =>
+    !a.sla_fail_data.find(ra => ra.db_name===rb.db_name && ra.layer===rb.layer));
+
+  const olap_a = a.queue_dist['olap'] || 0;
+  const olap_b = b.queue_dist['olap'] || 0;
+
+  const noteLines = [];
+  if (qDelta < 0) noteLines.push(`调度高峰拥塞（6点）显著缓解，平均排队从 <strong>${qA.toFixed(1)} 分</strong>降至 <strong>${qB.toFixed(1)} 分</strong>，下降 <span class="hl-green">${Math.abs(qDelta)}%</span>，说明上游依赖优化或集群资源调配已初见成效。`);
+  if (limitGone) noteLines.push(`<strong>limit 队列彻底消失</strong>（原 ${a.queue_dist['limit']} 条），olap 队列作业数也从 ${olap_a.toLocaleString()} 降至 ${olap_b.toLocaleString()}（<span class="hl-green">-${((olap_a-olap_b)/olap_a*100).toFixed(0)}%</span>），资源抢占问题明显收敛。`);
+  if (resolvedSla.length > 0) noteLines.push(`本期 SLA 已改善库层：${resolvedSla.map(r=>`<span class="hl-blue">${r.db_name}/${r.layer}</span>`).join('、')}，共 <span class="hl-green">${resolvedSla.length}</span> 个组合从未达标变为达标。`);
+  if (newSla.length > 0) noteLines.push(`新增 SLA 未达标库层 <span class="hl-red">${newSla.length}</span> 个（${newSla.map(r=>`${r.db_name}/${r.layer}`).slice(0,4).join('、')}${newSla.length>4?'等':''}），需重点排查其上游依赖链与 cron 配置。`);
+  noteLines.push(`ads 层 9点完成率从 <strong>${pct(adsA.h9||0)}</strong> 升至 <strong>${pct(adsB.h9||0)}</strong>（<span class="${h9delta>=0?'hl-green':'hl-red'}">${pp(+h9delta)}</span>）；10点完成率为 ${pct(adsB.h10||0)}，如仍未达到 90% 目标，建议进一步收窄 Gap 时间窗口。`);
+  if ((b.gap_30_count - a.gap_30_count) > 0) noteLines.push(`Gap 优化空间新增识别 <span class="hl-yellow">${b.gap_30_count - a.gap_30_count}</span> 个（共 ${b.gap_30_count} 个，≥30min），说明随着上游完成时间提前，可压缩的调度等待窗口在扩大，执行 Gap 收窄可进一步降低整体调度时延。`);
+
+  document.getElementById('exec-summary-wrap').innerHTML = `
+  <div class="exec-summary">
+    <div class="exec-summary-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+      </svg>
+      <h2>综合改进摘要</h2>
+      <div class="period">${a.date_label} → ${b.date_label}</div>
+    </div>
+    <div class="exec-chips">
+      ${chips.map(c=>`<div class="exec-chip ${c.cls}">${c.icon} ${c.text}</div>`).join('')}
+    </div>
+    <hr class="exec-divider">
+    <div class="exec-note">${noteLines.map((l,i)=>`<div style="margin-bottom:${i<noteLines.length-1?'8px':'0'}">${i+1}. ${l}</div>`).join('')}</div>
+  </div>`;
+}
+
+// ── Layer progress insight ──
+function renderInsightProgress(a, b) {
+  const adsA = a.layer_avg.find(r=>r.layer==='ads') || {};
+  const adsB = b.layer_avg.find(r=>r.layer==='ads') || {};
+  const layers = ['ads','dwd','dts','ods','dim','tms'];
+  const rows = [];
+
+  layers.forEach(l => {
+    const ra = a.layer_avg.find(r=>r.layer===l);
+    const rb = b.layer_avg.find(r=>r.layer===l);
+    if (!ra || !rb) return;
+    const d9  = +(rb.h9  - ra.h9).toFixed(2);
+    const d10 = +(rb.h10 - ra.h10).toFixed(2);
+    if (Math.abs(d9) < 0.5 && Math.abs(d10) < 0.5) return;
+    const type = (d9 >= 0 && d10 >= 0) ? 'good' : (d9 < -1 || d10 < -3) ? 'bad' : 'warn';
+    const icon = type==='good' ? '↑' : type==='bad' ? '↓' : '~';
+    rows.push(insightRow(type, icon,
+      `<strong>${l} 层</strong>：9点完成率 ${pct(ra.h9)} → <span class="${d9>=0?'hl-green':'hl-red'}">${pct(rb.h9)} (${pp(d9)})</span>，10点完成率 ${pct(ra.h10)} → <span class="${d10>=0?'hl-green':'hl-red'}">${pct(rb.h10)} (${pp(d10)})</span>`
+    ));
+  });
+
+  const h9A = adsA.h9||0, h9B = adsB.h9||0;
+  let summary = '';
+  if (h9B >= 90) summary = `<strong>ads 层已达 SLA 目标（9点完成率 ≥90%）</strong>，当前 ${pct(h9B)}，状态良好。`;
+  else if (h9B > h9A) summary = `ads 层 9点完成率持续提升至 ${pct(h9B)}，但尚未达到 90% 的 SLA 目标，还有 <span class="hl-yellow">${pct(90-h9B)}</span> 的提升空间。`;
+  else summary = `ads 层 9点完成率有所下滑（${pct(h9A)} → ${pct(h9B)}），建议排查新增或延迟加重的上游作业。`;
+
+  rows.unshift(insightRow('info', 'i', summary));
+  document.getElementById('insight-progress').innerHTML = insightPanel('完成率分析解读', rows);
+}
+
+// ── Queue insight ──
+function renderInsightQueue(a, b) {
+  const qA_list = a.queue_wait_avg.sort((x,y)=>x.hour-y.hour);
+  const qB_list = b.queue_wait_avg.sort((x,y)=>x.hour-y.hour);
+  const getQ = (list, h) => (list.find(x=>x.hour===h)||{avg_queue:0}).avg_queue;
+
+  const peakA = a.queue_wait_avg.reduce((m,x)=>x.avg_queue>m.avg_queue?x:m, {hour:0,avg_queue:0});
+  const peakB = b.queue_wait_avg.reduce((m,x)=>x.avg_queue>m.avg_queue?x:m, {hour:0,avg_queue:0});
+  const rows = [];
+
+  const pDelta = peakB.avg_queue - peakA.avg_queue;
+  const pPct   = (pDelta / peakA.avg_queue * 100).toFixed(1);
+  rows.push(insightRow(pDelta<=0?'good':'bad', pDelta<=0?'↓':'↑',
+    `高峰排队（${peakA.hour}点）：平均等待 <strong>${peakA.avg_queue.toFixed(1)} 分</strong> → <span class="${pDelta<=0?'hl-green':'hl-red'}">${peakB.avg_queue.toFixed(1)} 分</span>，变化 <span class="${pDelta<=0?'hl-green':'hl-red'}">${pDelta<=0?'':'+'}${pDelta.toFixed(1)} 分 (${pDelta<=0?'':'+'}${pPct}%)</span>。高峰拥塞是整个链路延迟的主因，此指标的改善可直接推动 SLA 达标率提升。`
+  ));
+
+  // find hours that worsened significantly
+  const worse = [];
+  for (let h=0; h<24; h++) {
+    const qa = getQ(qA_list, h), qb = getQ(qB_list, h);
+    if (qb - qa > 5) worse.push(`${h}点 (+${(qb-qa).toFixed(1)}分)`);
+  }
+  if (worse.length > 0) rows.push(insightRow('warn', '⚠',
+    `以下时段排队有所加重，需关注：<strong>${worse.join('、')}</strong>。可检查该时段新增或提前触发的 cron 作业是否引发资源竞争。`
+  ));
+
+  // concurrency peak
+  const cA = Object.entries(a.hourly_concurrent).reduce((m,[k,v])=>v>m[1]?[+k,v]:m, [0,0]);
+  const cB = Object.entries(b.hourly_concurrent).reduce((m,[k,v])=>v>m[1]?[+k,v]:m, [0,0]);
+  const cDelta = cB[1] - cA[1];
+  rows.push(insightRow(cDelta<=0?'good':'warn', 'C',
+    `并发峰值：${cA[0]}点 <strong>${cA[1].toLocaleString()}</strong> 条 → ${cB[0]}点 <strong>${cB[1].toLocaleString()}</strong> 条（<span class="${cDelta<=0?'hl-green':'hl-yellow'}">${num(cDelta)}</span>）。${cDelta>0?'并发量增加说明作业规模在扩大，若同时伴随排队加重，需考虑扩容或削峰。':'并发峰值下降有助于降低集群瞬时压力。'}`
+  ));
+
+  document.getElementById('insight-queue').innerHTML = insightPanel('调度排队 & 并发分析解读', rows);
+}
+
+// ── Resource insight ──
+function renderInsightResource(a, b) {
+  const rows = [];
+
+  // queue composition change
+  const limitA = a.queue_dist['limit'] || 0;
+  const limitB = b.queue_dist['limit'] || 0;
+  const olapA  = a.queue_dist['olap']  || 0;
+  const olapB  = b.queue_dist['olap']  || 0;
+
+  if (limitA > 0 && limitB === 0) {
+    rows.push(insightRow('good', '🎉',
+      `<strong>limit 队列彻底清零</strong>（${limitA} → 0）。limit 队列通常意味着作业因资源上限被强制限速，此项清零说明集群资源管理或作业配置优化效果显著，不再有作业被"限流"。`
+    ));
+  }
+  if (olapA > olapB) {
+    const drop = ((olapA-olapB)/olapA*100).toFixed(0);
+    rows.push(insightRow('good', '↓',
+      `olap 队列作业数从 <strong>${olapA.toLocaleString()}</strong> 降至 <strong>${olapB.toLocaleString()}</strong>，减少 <span class="hl-green">${drop}%</span>。olap 是主要计算队列，作业数减少可能源于历史日志数据周期较短或集群削峰调度，有助于降低队列竞争。`
+    ));
+  }
+
+  // top db resource change
+  const topA = a.db_res.slice(0,5).map(r=>r.db_name);
+  const incrDbs = b.db_res.filter(rb => {
+    const ra = a.db_res.find(r=>r.db_name===rb.db_name);
+    return ra && (rb.total_mem_gb_h - ra.total_mem_gb_h) > 100;
+  });
+  const decrDbs = b.db_res.filter(rb => {
+    const ra = a.db_res.find(r=>r.db_name===rb.db_name);
+    return ra && (ra.total_mem_gb_h - rb.total_mem_gb_h) > 100;
+  });
+
+  if (decrDbs.length > 0) rows.push(insightRow('good', '↓',
+    `资源消耗下降明显的库：${decrDbs.map(r=>{
+      const ra = a.db_res.find(x=>x.db_name===r.db_name);
+      return `<span class="hl-green">${r.db_name}</span>（-${(ra.total_mem_gb_h-r.total_mem_gb_h).toFixed(0)} GB·h）`;
+    }).join('、')}。可能受益于 SQL 优化或执行次数减少。`
+  ));
+  if (incrDbs.length > 0) rows.push(insightRow('warn', '↑',
+    `资源消耗上升较多的库：${incrDbs.map(r=>{
+      const ra = a.db_res.find(x=>x.db_name===r.db_name);
+      return `<span class="hl-yellow">${r.db_name}</span>（+${(r.total_mem_gb_h-ra.total_mem_gb_h).toFixed(0)} GB·h）`;
+    }).join('、')}。建议检查是否有新增高内存作业或 SQL 扫描范围扩大。`
+  ));
+
+  if (rows.length === 0) rows.push(insightRow('info','i','库级资源分布整体变化不大，Top 库排名基本稳定。'));
+  document.getElementById('insight-resource').innerHTML = insightPanel('资源消耗分析解读', rows);
+}
+
+// ── SLA insight ──
+function renderInsightSla(a, b) {
+  const resolved = a.sla_fail_data.filter(ra => !b.sla_fail_data.find(rb=>rb.db_name===ra.db_name&&rb.layer===ra.layer));
+  const newFail  = b.sla_fail_data.filter(rb => !a.sla_fail_data.find(ra=>ra.db_name===rb.db_name&&ra.layer===rb.layer));
+  const persist  = b.sla_fail_data.filter(rb =>  a.sla_fail_data.find(ra=>ra.db_name===rb.db_name&&ra.layer===rb.layer));
+  const rows = [];
+
+  if (resolved.length > 0) rows.push(insightRow('good', '✓',
+    `<strong>已改善（${resolved.length} 组合）</strong>：${resolved.map(r=>`<span class="hl-green">${r.db_name}/${r.layer}</span>`).join('、')} 从 SLA 未达标列表中移除，说明对应库层的调度优化或上游治理已见效。`
+  ));
+
+  if (newFail.length > 0) rows.push(insightRow('bad', '▲',
+    `<strong>新增未达标（${newFail.length} 组合）</strong>：${newFail.map(r=>`<span class="hl-red">${r.db_name}/${r.layer}</span>（10点 ${pct(r.h10)}）`).join('、')}。新增库层可能是随业务增量接入，或其上游链路在统计周期内出现延迟加剧，建议拉取该库层的作业依赖树逐一排查 cron 触发时间是否过晚。`
+  ));
+
+  if (persist.length > 0) {
+    const worst = persist.sort((x,y)=>x.h10-y.h10)[0];
+    rows.push(insightRow('warn', '✗',
+      `<strong>持续未达标（${persist.length} 组合）</strong>：${persist.map(r=>`${r.db_name}/${r.layer}`).join('、')} 在两期均未达标。其中 <span class="hl-red">${worst.db_name}/${worst.layer}</span> 10点完成率仅 ${pct(worst.h10)}，情况最为严峻，建议列为 P0 治理项，优先排查其资源占用、依赖深度和 cron 时间配置。`
+    ));
+  }
+
+  rows.push(insightRow('info', 'i',
+    `SLA 判定基准：9点完成率 ≥90% 为达标目标，10点完成率 &lt;80% 列入未达标。共有 <span class="hl-blue">${b.sla_ok}</span> 个库层组合达标（基准期 ${a.sla_ok}），<span class="${b.sla_fail>a.sla_fail?'hl-red':'hl-green'}">${b.sla_fail}</span> 个未达标（基准期 ${a.sla_fail}）。`
+  ));
+  document.getElementById('insight-sla').innerHTML = insightPanel('SLA 分析解读', rows);
+}
+
+// ── Gap & Ads insight ──
+function renderInsightGap(a, b) {
+  const rows = [];
+  const gapDelta = b.gap_30_count - a.gap_30_count;
+  const adsDelta = b.ads_total - a.ads_total;
+  const highDelta= b.ads_high - a.ads_high;
+
+  rows.push(insightRow(gapDelta > 50 ? 'warn' : 'info', '⏱',
+    `Gap 优化作业数（≥30min 空闲等待）：<strong>${a.gap_30_count}</strong> → <strong>${b.gap_30_count}</strong>（<span class="${gapDelta>0?'hl-yellow':'hl-green'}">${num(gapDelta)}</span>）。${gapDelta>0?'识别到更多可收窄的时间窗口，说明上游完成时间在提前——若执行 Gap 收窄方案，可进一步降低链路端到端延迟。':'Gap 数量减少可能是已落地了部分收窄方案。'}`
+  ));
+
+  rows.push(insightRow(adsDelta > 20 ? 'warn' : 'info', '🔗',
+    `ads 伪中间层作业总数：<strong>${a.ads_total}</strong> → <strong>${b.ads_total}</strong>（<span class="${adsDelta>0?'hl-yellow':'hl-green'}">${num(adsDelta)}</span>）。伪中间层指 ads 库中被其他作业依赖的作业，本应仅作为输出层，若大量被依赖则形成隐性中间层，增加链路脆弱性。`
+  ));
+
+  if (highDelta > 0) rows.push(insightRow('bad', '🔴',
+    `高危伪中间层（下游 ≥20 个）<strong>新增 ${highDelta} 个</strong>，当前共 ${b.ads_high} 个。高危作业一旦延迟，将连锁影响 20+ 个下游，建议立即对其设置高优先级并评估是否需要拆分为正式的 dwd/dts 层。`
+  ));
+  else if (highDelta === 0 && b.ads_high > 0) rows.push(insightRow('warn', '🔴',
+    `高危伪中间层维持 <strong>${b.ads_high} 个</strong>（单作业最大下游 ${b.ads_max} 个），尚未得到有效治理，建议持续推进链路拆分。`
+  ));
+  else if (highDelta < 0) rows.push(insightRow('good', '↓',
+    `高危伪中间层减少 <span class="hl-green">${Math.abs(highDelta)} 个</span>，链路依赖结构有所改善。`
+  ));
+
+  rows.push(insightRow('info', 'i',
+    `中危伪中间层（下游 10~19）：${a.ads_mid} → ${b.ads_mid}。建议按下游数量降序，逐步对中高危作业做分层重构，将其数据产出表迁移至合适的 dwd/dts 层，从根本上消除伪中间层问题。`
+  ));
+
+  document.getElementById('insight-gap').innerHTML = insightPanel('Gap 优化 & 伪中间层分析解读', rows);
+}
+
+// auto-run on load
+window.addEventListener('load', runCompare);
+window.addEventListener('resize', () => charts.forEach(c => c.resize()));
+</script>
+</body>
+</html>
