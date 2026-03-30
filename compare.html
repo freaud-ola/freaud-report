@@ -648,9 +648,12 @@ function updateLayerOptions(db) {
 }
 
 // 数仓库判断：dws_* 且排除非业务库
-const DW_EXCLUDE = new Set(['dws_pspg', 'dws_test']);
+const DW_DBS = new Set([
+  'dws_mixer','dws_oversea','dws_pa','dws_pg','dws_playerai',
+  'dws_ps','dws_utlas','dws_veeka','dws_wowchat','dws_yoitoki'
+]);
 function isDwDb(db) {
-  return typeof db === 'string' && db.startsWith('dws_') && !DW_EXCLUDE.has(db);
+  return DW_DBS.has(db);
 }
 
 // compute overall average across all layers for a given data snapshot
