@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Office / 表格与文档（非代码数据）
+*.xlsx
+*.xls
+*.xlsm
+*.doc
+*.docx
+*.ppt
+*.pptx
+*.pdf
+
+# 压缩包
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# 日志与临时文件
+*.log
+*.tmp
+*.temp
+*~
+
+# 环境变量与密钥
+.env
+.env.*
+!.env.example
+
+# 编辑器（按需保留团队配置时可注释掉）
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -1,0 +1,25 @@
+ SELECT db_name  -- 库名
+       ,tbl_name  --表名
+       ,column_name  -- 字段名
+       ,comment  -- 字段备注
+       ,integer_idx  -- 字段顺序数字，从0开始
+ from(
+ select  db_name,tbl_id,tbl_name,cd_id 
+ from   dws_meta.ads_hive_table_df  where dt='2026-04-06' 
+ ) a left join(
+  select  cd_id,comment,column_name,type_name,integer_idx
+  from   dws_meta.dts_hive_columns_v2_df  
+  where dt='2026-04-06' 
+ ) b on a.cd_id=b.cd_id
+where db_name ='dws_oversea' ;
+
+字段信息.xlsx 是上面的 sql 查出来的。表中是 hive 数仓中 dws_oversea 这个库下的所有表的所有字段。
+现在想要做字段命名的规范化，要找出哪些同意不同名，或者同名不同意的字段。
+输出：层级，字段名，表名，备注。
+示例：
+dwd   col1   tbl1  性别
+dwd   col1   tbl2  性别男女
+dwd   col1   tbl3  男女
+以上示例都是指的性别，需要找出这种。
+层级根据tbl_name 解析，按照 _ 截取第一个就是 ，如ods,dwd,dim,tms,ads。
+结果以报告的形式，输出为md文件。

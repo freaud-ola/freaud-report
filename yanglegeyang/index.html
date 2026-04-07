@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>🐑 羊了个羊</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:'PingFang SC','Helvetica Neue',Arial,sans-serif;
+  background:linear-gradient(150deg,#ff9a9e 0%,#fecfef 40%,#ffecd2 100%);
+  min-height:100vh;
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:14px 12px 20px;
+  user-select:none;
+  overflow-x:hidden;
+}
+#app{width:100%;max-width:480px;display:flex;flex-direction:column;gap:10px}
+
+/* ── HEADER ─────────────────────────── */
+#header{
+  display:flex;align-items:center;justify-content:space-between;
+  color:#fff;
+  text-shadow:0 2px 6px rgba(0,0,0,.2);
+}
+#header h1{font-size:22px;font-weight:900;letter-spacing:2px}
+#header-right{display:flex;gap:8px}
+.hbtn{
+  background:rgba(255,255,255,.3);border:none;border-radius:20px;
+  color:#fff;font-size:12px;font-weight:700;padding:5px 12px;
+  cursor:pointer;backdrop-filter:blur(4px);
+  transition:background .15s;
+}
+.hbtn:hover{background:rgba(255,255,255,.45)}
+
+/* ── INFO ───────────────────────────── */
+#info{
+  display:flex;justify-content:space-around;
+  background:rgba(255,255,255,.3);backdrop-filter:blur(8px);
+  border-radius:14px;padding:8px 0;color:#fff;
+  box-shadow:0 2px 12px rgba(0,0,0,.1);
+}
+.info-item{text-align:center}
+.info-label{font-size:11px;opacity:.85;font-weight:500}
+.info-val{font-size:20px;font-weight:800;line-height:1.2}
+
+/* ── BOARD WRAP ─────────────────────── */
+#board-wrap{
+  background:rgba(255,255,255,.2);backdrop-filter:blur(8px);
+  border-radius:18px;padding:12px;
+  box-shadow:0 4px 24px rgba(0,0,0,.12);
+  overflow:hidden;position:relative;
+}
+#board{position:relative;transform-origin:top left;margin:0 auto}
+
+/* ── TILE ───────────────────────────── */
+.tile{
+  position:absolute;width:64px;height:64px;
+  background:#fffdf8;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:30px;cursor:pointer;
+  border:1.5px solid rgba(255,255,255,.95);
+  transition:transform .12s;
+  will-change:transform;
+}
+.tile.free{cursor:pointer}
+.tile.free:hover{transform:translateY(-4px) scale(1.06)!important;z-index:99999!important}
+.tile.free:active{transform:scale(.94)!important}
+.tile.locked{
+  cursor:default;pointer-events:none;
+  background:#d8d4cd;
+  border-color:rgba(200,195,185,.7);
+  filter:brightness(.8);
+}
+@keyframes tileOut{
+  0%{transform:scale(1);opacity:1}
+  50%{transform:scale(1.2);opacity:.7}
+  100%{transform:scale(0);opacity:0}
+}
+
+/* ── BUFFER ─────────────────────────── */
+#buf-area{
+  min-height:24px;display:flex;gap:6px;justify-content:center;
+  align-items:center;flex-wrap:wrap;padding:0 4px;
+}
+#buf-label{font-size:11px;color:rgba(255,255,255,.75);margin-right:2px}
+.buf-tile{
+  width:38px;height:42px;border-radius:8px;
+  background:rgba(255,255,255,.9);
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  box-shadow:0 2px 6px rgba(0,0,0,.15);
+  animation:bufIn .2s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes bufIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* ── SLOT ───────────────────────────── */
+#slot{
+  display:flex;gap:5px;
+  background:rgba(0,0,0,.28);border-radius:16px;
+  padding:8px 10px;min-height:78px;align-items:center;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.2);
+}
+.slot-cell{
+  flex:1;height:62px;min-width:0;
+  border-radius:10px;border:2px dashed rgba(255,255,255,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;transition:all .15s;
+}
+.slot-cell.has{
+  background:#fffdf8;border-style:solid;
+  border-color:rgba(255,255,255,.85);
+  box-shadow:0 3px 10px rgba(0,0,0,.18);
+  animation:slotIn .18s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes slotIn{from{transform:scale(.5);opacity:.5}to{transform:scale(1);opacity:1}}
+.slot-cell.match{animation:matchBoom .35s ease forwards}
+@keyframes matchBoom{
+  0%{transform:scale(1)}
+  35%{transform:scale(1.25);background:#fff176;box-shadow:0 0 16px #ffd600}
+  100%{transform:scale(0);opacity:0}
+}
+
+/* ── TOOLS ──────────────────────────── */
+#tools{display:flex;gap:8px}
+.tbtn{
+  flex:1;border:none;border-radius:14px;
+  padding:10px 4px 8px;color:#fff;font-weight:800;font-size:12px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:pointer;transition:transform .1s,filter .1s;
+  box-shadow:0 3px 10px rgba(0,0,0,.15);
+}
+.tbtn:not(:disabled):active{transform:scale(.93)}
+.tbtn:disabled{opacity:.35;cursor:default;pointer-events:none;filter:grayscale(.5)}
+.tbtn .ti{font-size:24px;line-height:1}
+.tbtn small{font-size:11px;opacity:.9;font-weight:600}
+#t-undo{background:linear-gradient(135deg,#f093fb,#f5576c)}
+#t-shuf{background:linear-gradient(135deg,#4facfe,#00c9ff)}
+#t-out {background:linear-gradient(135deg,#43e97b,#38f9d7)}
+
+/* ── OVERLAY ────────────────────────── */
+#overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+  z-index:9999;align-items:center;justify-content:center;
+}
+#overlay.on{display:flex}
+#ov-box{
+  background:#fff;border-radius:24px;padding:36px 28px 32px;
+  text-align:center;animation:ovIn .4s cubic-bezier(.34,1.56,.64,1);
+  max-width:300px;width:90%;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+}
+@keyframes ovIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+#ov-emoji{font-size:64px;margin-bottom:10px}
+#ov-title{font-size:26px;font-weight:900;color:#222;margin-bottom:6px}
+#ov-desc{font-size:13px;color:#888;line-height:1.6;margin-bottom:22px}
+#ov-btn{
+  background:linear-gradient(135deg,#f093fb,#f5576c);
+  color:#fff;border:none;border-radius:50px;
+  padding:13px 42px;font-size:16px;font-weight:800;
+  cursor:pointer;box-shadow:0 4px 16px rgba(245,87,108,.4);
+  transition:transform .1s;
+}
+#ov-btn:active{transform:scale(.95)}
+
+/* ── LEVEL SELECT ───────────────────── */
+#lv-select{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+  z-index:9998;align-items:center;justify-content:center;
+}
+#lv-select.on{display:flex}
+#lv-box{
+  background:#fff;border-radius:24px;padding:32px 24px;
+  text-align:center;max-width:320px;width:90%;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+  animation:ovIn .4s cubic-bezier(.34,1.56,.64,1);
+}
+#lv-box h2{font-size:22px;font-weight:900;margin-bottom:6px;color:#222}
+#lv-box p{font-size:13px;color:#888;margin-bottom:20px}
+.lv-btn{
+  display:flex;align-items:center;gap:12px;
+  border:none;border-radius:14px;padding:14px 18px;
+  width:100%;margin-bottom:10px;cursor:pointer;
+  color:#fff;font-weight:800;font-size:15px;
+  transition:transform .1s;
+  box-shadow:0 3px 12px rgba(0,0,0,.15);
+}
+.lv-btn:active{transform:scale(.97)}
+.lv-btn:last-child{margin-bottom:0}
+#lv-1{background:linear-gradient(135deg,#43e97b,#38f9d7)}
+#lv-2{background:linear-gradient(135deg,#f093fb,#f5576c)}
+.lv-btn .lv-icon{font-size:30px}
+.lv-btn .lv-info{text-align:left}
+.lv-btn .lv-name{font-size:16px;font-weight:900}
+.lv-btn .lv-desc{font-size:12px;opacity:.9;font-weight:500;margin-top:2px}
+
+/* ── CONFETTI ───────────────────────── */
+.confetti-piece{
+  position:fixed;width:10px;height:14px;
+  top:-20px;border-radius:3px;
+  animation:fall linear forwards;
+  pointer-events:none;z-index:10000;
+}
+@keyframes fall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1}
+  100%{transform:translateY(110vh) rotate(720deg);opacity:0}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>🐑 羊了个羊</h1>
+    <div id="header-right">
+      <button class="hbtn" onclick="showLvSelect()">换关卡</button>
+      <button class="hbtn" onclick="G.start(G.level)">重来</button>
+    </div>
+  </div>
+
+  <div id="info">
+    <div class="info-item">
+      <div class="info-label">剩余</div>
+      <div class="info-val" id="c-left">—</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">步数</div>
+      <div class="info-val" id="c-steps">0</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">消除组</div>
+      <div class="info-val" id="c-cleared">0</div>
+    </div>
+  </div>
+
+  <div id="board-wrap">
+    <div id="board"></div>
+  </div>
+
+  <div id="buf-area"></div>
+
+  <div id="slot"></div>
+
+  <div id="tools">
+    <button class="tbtn" id="t-undo" onclick="G.undo()">
+      <span class="ti">↩️</span>撤回<small id="u-undo"></small>
+    </button>
+    <button class="tbtn" id="t-shuf" onclick="G.shuffle()">
+      <span class="ti">🔀</span>洗牌<small id="u-shuf"></small>
+    </button>
+    <button class="tbtn" id="t-out"  onclick="G.removeOut()">
+      <span class="ti">📤</span>移出<small id="u-out"></small>
+    </button>
+  </div>
+</div>
+
+<!-- 关卡选择 -->
+<div id="lv-select">
+  <div id="lv-box">
+    <h2>🐑 选择关卡</h2>
+    <p>第一关极简，第二关极难<br>你能通过第二关吗？</p>
+    <button class="lv-btn" id="lv-1" onclick="G.start(1)">
+      <span class="lv-icon">😊</span>
+      <div class="lv-info">
+        <div class="lv-name">第一关 · 引导关</div>
+        <div class="lv-desc">18 张牌 · 单层 · 通关率 ≈ 100%</div>
+      </div>
+    </button>
+    <button class="lv-btn" id="lv-2" onclick="G.start(2)">
+      <span class="lv-icon">😈</span>
+      <div class="lv-info">
+        <div class="lv-name">第二关 · 地狱关</div>
+        <div class="lv-desc">84 张牌 · 4 层叠放 · 通关率 &lt; 5%</div>
+      </div>
+    </button>
+  </div>
+</div>
+
+<!-- 结局弹窗 -->
+<div id="overlay">
+  <div id="ov-box">
+    <div id="ov-emoji"></div>
+    <div id="ov-title"></div>
+    <div id="ov-desc"></div>
+    <button id="ov-btn" onclick="G.start(G.level)">再来一局</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════
+   常量
+═══════════════════════════════════════════════════════ */
+const TW = 64, TH = 64;   // tile 尺寸
+const STEP = 68;           // 同层格距（无视觉重叠）
+const LAY  = 34;           // 层间偏移（= STEP/2）
+const BLOCK = 10;          // 判定遮挡的最小重叠像素
+const SLOT_MAX = 7;
+
+const SYM = ['🌸','🎋','🍀','🌊','🔥','⭐','🎯','🎪','🍎','🌙','🎭','🎨'];
+const COLORS = ['#f5576c','#fd7040','#f9a825','#66bb6a','#26c6da',
+                '#42a5f5','#7e57c2','#ec407a','#8d6e63','#78909c','#26a69a','#d4e157'];
+
+/* ═══════════════════════════════════════════════════════
+   游戏状态
+═══════════════════════════════════════════════════════ */
+const G = {
+  level: 2,
+  tiles: [], slot: [], buf: [],
+  steps: 0, cleared: 0,
+  hist: [], tools: { u:0, s:0, r:0 },
+  over: false,
+
+  /* ──────────────── 初始化 ──────────────── */
+  start(lv) {
+    this.level = lv || this.level;
+    this.tiles = lv === 1 ? this._genLv1() : this._genLv2();
+    this.slot = []; this.buf = [];
+    this.steps = 0; this.cleared = 0;
+    this.hist = [];
+    this.tools = lv === 1 ? { u:1, s:1, r:1 } : { u:3, s:2, r:2 };
+    this.over = false;
+    document.getElementById('overlay').classList.remove('on');
+    document.getElementById('lv-select').classList.remove('on');
+    this.render();
+  },
+
+  /* ── 第一关：18 张，单层，3×3×2 格局 ── */
+  _genLv1() {
+    const pos = [];
+    for (let r = 0; r < 2; r++)
+      for (let c = 0; c < 9; c++)
+        pos.push({ x: c * STEP, y: r * STEP, z: 0 });
+    // 18 = 6 × 3
+    const types = [];
+    for (let t = 0; t < 6; t++) types.push(t, t, t);
+    _sfl(types);
+    return pos.map((p, i) => _tile(i, p.x, p.y, p.z, types[i]));
+  },
+
+  /* ── 第二关：84 张，4 层 ── */
+  _genLv2() {
+    const pos = [];
+    // z=0: 7×7=49
+    for (let r = 0; r < 7; r++)
+      for (let c = 0; c < 7; c++)
+        pos.push({ x: c*STEP, y: r*STEP, z: 0 });
+    // z=1: 5×5=25
+    for (let r = 0; r < 5; r++)
+      for (let c = 0; c < 5; c++)
+        pos.push({ x: LAY+c*STEP, y: LAY+r*STEP, z: 1 });
+    // z=2: 3×3=9
+    for (let r = 0; r < 3; r++)
+      for (let c = 0; c < 3; c++)
+        pos.push({ x: LAY*2+c*STEP, y: LAY*2+r*STEP, z: 2 });
+    // z=3: 1
+    pos.push({ x: LAY*3, y: LAY*3, z: 3 });
+    // 84 = 28×3 → 12 种: 4种×9张 + 8种×6张 = 36+48=84
+    const types = [];
+    for (let t = 0; t < 12; t++) {
+      const n = t < 4 ? 9 : 6;
+      for (let i = 0; i < n; i++) types.push(t);
+    }
+    _sfl(types);
+    return pos.map((p, i) => _tile(i, p.x, p.y, p.z, types[i]));
+  },
+
+  /* ──────────────── 可达性 ──────────────── */
+  _free(t) {
+    if (t.dead || t.slot || t.buf) return false;
+    return !this.tiles.some(o => {
+      if (o.dead || o.slot || o.buf || o.id === t.id || o.z !== t.z + 1) return false;
+      return _ov(t, o) > BLOCK;
+    });
+  },
+
+  /* ──────────────── 点击牌 ──────────────── */
+  click(id) {
+    if (this.over) return;
+    const t = this.tiles.find(x => x.id === id);
+    if (!t || !this._free(t)) return;
+
+    this._saveHist();
+    t.slot = true;
+    this.steps++;
+    this._insertSlot(t);
+    this._matchCheck();
+
+    const left = this.tiles.filter(x => !x.dead && !x.slot && !x.buf).length;
+    if (left === 0 && this.slot.length === 0) {
+      this.render();
+      setTimeout(() => this._win(), 350);
+      return;
+    }
+    if (this.slot.length >= SLOT_MAX) {
+      this.render();
+      setTimeout(() => this._lose(), 350);
+      return;
+    }
+    this.render();
+  },
+
+  _insertSlot(t) {
+    let idx = this.slot.length;
+    for (let i = this.slot.length - 1; i >= 0; i--) {
+      if (this.slot[i].type === t.type) { idx = i + 1; break; }
+    }
+    this.slot.splice(idx, 0, t);
+  },
+
+  _matchCheck() {
+    let found = true;
+    while (found) {
+      found = false;
+      for (let i = 0; i <= this.slot.length - 3; i++) {
+        if (this.slot[i].type === this.slot[i+1].type &&
+            this.slot[i+1].type === this.slot[i+2].type) {
+          this.slot[i].dead = true;
+          this.slot[i+1].dead = true;
+          this.slot[i+2].dead = true;
+          this.slot.splice(i, 3);
+          this.cleared++;
+          found = true;
+          break;
+        }
+      }
+    }
+  },
+
+  /* ──────────────── 道具 ──────────────── */
+  undo() {
+    if (!this.hist.length || !this.tools.u) return;
+    this.tools.u--;
+    this._restore(this.hist.pop());
+    this.render();
+  },
+
+  shuffle() {
+    if (!this.tools.s) return;
+    this.tools.s--;
+    const act = this.tiles.filter(t => !t.dead && !t.slot && !t.buf);
+    const types = act.map(t => t.type);
+    _sfl(types);
+    act.forEach((t, i) => t.type = types[i]);
+    this.render();
+  },
+
+  removeOut() {
+    if (!this.slot.length || !this.tools.r) return;
+    this.tools.r--;
+    const t = this.slot.pop();
+    t.slot = false;
+    t.buf  = true;
+    this.buf.push(t);
+    this.render();
+  },
+
+  /* ──────────────── 快照 ──────────────── */
+  _saveHist() {
+    const snap = {
+      slot:   this.slot.map(t => t.id),
+      buf:    this.buf.map(t => t.id),
+      dead:   this.tiles.filter(t => t.dead).map(t => t.id),
+      inSlot: this.tiles.filter(t => t.slot).map(t => t.id),
+      inBuf:  this.tiles.filter(t => t.buf).map(t => t.id),
+      steps:  this.steps,
+      cleared: this.cleared,
+    };
+    this.hist.push(snap);
+    if (this.hist.length > 5) this.hist.shift();
+  },
+
+  _restore(s) {
+    const dead  = new Set(s.dead);
+    const inSl  = new Set(s.inSlot);
+    const inBuf = new Set(s.inBuf);
+    this.tiles.forEach(t => {
+      t.dead = dead.has(t.id);
+      t.slot = inSl.has(t.id);
+      t.buf  = inBuf.has(t.id);
+    });
+    this.slot    = s.slot.map(id => this.tiles.find(t => t.id === id));
+    this.buf     = s.buf.map(id => this.tiles.find(t => t.id === id));
+    this.steps   = s.steps;
+    this.cleared = s.cleared;
+  },
+
+  /* ──────────────── 渲染 ──────────────── */
+  render() {
+    this._rBoard();
+    this._rSlot();
+    this._rBuf();
+    this._rInfo();
+    requestAnimationFrame(() => this._scale());
+  },
+
+  _rBoard() {
+    const el = document.getElementById('board');
+    el.innerHTML = '';
+    const act = this.tiles.filter(t => !t.dead && !t.slot && !t.buf);
+    if (!act.length) { el.style.width = el.style.height = '0'; return; }
+
+    const mxX = Math.max(...act.map(t => t.x)) + TW;
+    const mxY = Math.max(...act.map(t => t.y)) + TH;
+    el.style.width  = mxX + 'px';
+    el.style.height = mxY + 'px';
+
+    act.sort((a, b) => a.z !== b.z ? a.z - b.z : a.y !== b.y ? a.y - b.y : a.x - b.x)
+       .forEach(t => {
+         const free  = this._free(t);
+         const depth = (t.z + 1) * 3;
+         const d = document.createElement('div');
+         d.className   = 'tile ' + (free ? 'free' : 'locked');
+         d.style.left  = t.x + 'px';
+         d.style.top   = t.y + 'px';
+         d.style.zIndex = t.z * 1000 + Math.floor(t.y / STEP) * 10 + Math.floor(t.x / STEP);
+         d.style.boxShadow = free
+           ? `${depth}px ${depth}px 0 rgba(0,0,0,.18), ${depth+1}px ${depth+2}px ${depth+6}px rgba(0,0,0,.2)`
+           : `2px 2px 0 rgba(0,0,0,.1), 2px 3px 6px rgba(0,0,0,.1)`;
+         d.textContent = SYM[t.type];
+         // 彩色右侧边装饰
+         d.style.borderRight = `3px solid ${COLORS[t.type]}44`;
+         d.style.borderBottom = `3px solid ${COLORS[t.type]}44`;
+         if (free) d.addEventListener('click', () => this.click(t.id), { once: true });
+         el.appendChild(d);
+       });
+  },
+
+  _rSlot() {
+    const el = document.getElementById('slot');
+    el.innerHTML = '';
+    for (let i = 0; i < SLOT_MAX; i++) {
+      const c = document.createElement('div');
+      c.className = 'slot-cell' + (this.slot[i] ? ' has' : '');
+      if (this.slot[i]) {
+        c.textContent = SYM[this.slot[i].type];
+        c.style.borderColor = COLORS[this.slot[i].type] + '88';
+      }
+      el.appendChild(c);
+    }
+  },
+
+  _rBuf() {
+    const el = document.getElementById('buf-area');
+    el.innerHTML = '';
+    if (!this.buf.length) return;
+    const lbl = document.createElement('span');
+    lbl.id = 'buf-label'; lbl.textContent = '暂存：';
+    el.appendChild(lbl);
+    this.buf.forEach(t => {
+      const d = document.createElement('div');
+      d.className = 'buf-tile';
+      d.textContent = SYM[t.type];
+      el.appendChild(d);
+    });
+  },
+
+  _rInfo() {
+    const left = this.tiles.filter(t => !t.dead && !t.slot && !t.buf).length;
+    document.getElementById('c-left').textContent   = left;
+    document.getElementById('c-steps').textContent  = this.steps;
+    document.getElementById('c-cleared').textContent = this.cleared;
+    const { u, s, r } = this.tools;
+    document.getElementById('t-undo').disabled = !this.hist.length || !u;
+    document.getElementById('t-shuf').disabled = !s;
+    document.getElementById('t-out').disabled  = !this.slot.length || !r;
+    document.getElementById('u-undo').textContent = `(${u}次)`;
+    document.getElementById('u-shuf').textContent = `(${s}次)`;
+    document.getElementById('u-out').textContent  = `(${r}次)`;
+  },
+
+  _scale() {
+    const wrap  = document.getElementById('board-wrap');
+    const board = document.getElementById('board');
+    const bw = parseInt(board.style.width)  || 476;
+    const bh = parseInt(board.style.height) || 476;
+    const avail = wrap.clientWidth - 24;
+    const sc = Math.min(1, avail / bw);
+    board.style.transform = `scale(${sc})`;
+    wrap.style.height = Math.ceil(bh * sc + 24) + 'px';
+  },
+
+  /* ──────────────── 胜负 ──────────────── */
+  _win() {
+    this.over = true;
+    _confetti();
+    _overlay('🎉', '太厉害了！',
+      `关卡 ${this.level} 通关！\n共走 ${this.steps} 步，消除 ${this.cleared} 组！`);
+  },
+  _lose() {
+    this.over = true;
+    _overlay('😭', '游戏结束',
+      `槽位已满，还剩 ${this.tiles.filter(t => !t.dead && !t.slot && !t.buf).length} 张\n下次继续加油！`);
+  },
+};
+
+/* ═══════════════════════════════════════════════════════
+   工具函数
+═══════════════════════════════════════════════════════ */
+function _tile(id, x, y, z, type) {
+  return { id, x, y, z, type, dead: false, slot: false, buf: false };
+}
+
+function _ov(a, b) {
+  const ox = Math.min(a.x + TW, b.x + TW) - Math.max(a.x, b.x);
+  const oy = Math.min(a.y + TH, b.y + TH) - Math.max(a.y, b.y);
+  return (ox > 0 && oy > 0) ? Math.min(ox, oy) : 0;
+}
+
+function _sfl(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = 0 | Math.random() * (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+}
+
+function _overlay(em, ti, de) {
+  document.getElementById('ov-emoji').textContent = em;
+  document.getElementById('ov-title').textContent = ti;
+  document.getElementById('ov-desc').textContent  = de;
+  document.getElementById('overlay').classList.add('on');
+}
+
+function showLvSelect() {
+  document.getElementById('lv-select').classList.add('on');
+}
+
+function _confetti() {
+  const cols = ['#f5576c','#fda085','#f9ca24','#6ab04c','#22a6b3','#be2edd','#4facfe'];
+  for (let i = 0; i < 60; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.cssText = [
+      `left:${Math.random()*100}vw`,
+      `background:${cols[i%cols.length]}`,
+      `animation-duration:${0.8+Math.random()*1.4}s`,
+      `animation-delay:${Math.random()*0.6}s`,
+      `width:${6+Math.random()*10}px`,
+      `height:${8+Math.random()*14}px`,
+      `transform:rotate(${Math.random()*360}deg)`,
+      `border-radius:${Math.random()>0.5?'50%':'3px'}`,
+    ].join(';');
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   启动
+═══════════════════════════════════════════════════════ */
+window.addEventListener('resize', () => G._scale());
+
+// 首次显示关卡选择
+document.getElementById('lv-select').classList.add('on');
+// 预先以第二关初始化（背景），但等用户选择
+G.level = 2;
+G.tiles = [];
+G.slot  = [];
+G.buf   = [];
+G._rInfo();
+</script>
+</body>
+</html>

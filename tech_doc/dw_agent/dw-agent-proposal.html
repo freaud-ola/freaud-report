@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数仓 AI Agent · 技术方案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #070c18;
+  --bg2:      #0d1526;
+  --bg3:      #111d35;
+  --card:     #141e35;
+  --border:   #1e2f50;
+  --border2:  #263656;
+  --blue:     #3b82f6;
+  --blue-dim: rgba(59,130,246,.12);
+  --cyan:     #06b6d4;
+  --cyan-dim: rgba(6,182,212,.12);
+  --purple:   #8b5cf6;
+  --purple-dim: rgba(139,92,246,.12);
+  --green:    #10b981;
+  --green-dim: rgba(16,185,129,.12);
+  --amber:    #f59e0b;
+  --amber-dim: rgba(245,158,11,.12);
+  --rose:     #f43f5e;
+  --text:     #e2e8f0;
+  --muted:    #64748b;
+  --muted2:   #94a3b8;
+  --font:     'Outfit', sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 15px;
+  overflow-x: hidden;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── NAV ── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(7,12,24,.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px;
+  display: flex; align-items: center; gap: 6px;
+  height: 56px;
+}
+.nav-logo {
+  font-size: .95rem; font-weight: 700;
+  background: linear-gradient(90deg, var(--blue), var(--cyan));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-right: 20px; white-space: nowrap;
+}
+.nav-links { display: flex; gap: 2px; flex: 1; flex-wrap: nowrap; overflow: hidden; }
+.nav-links a {
+  font-size: .78rem; font-weight: 500; color: var(--muted);
+  text-decoration: none; padding: 6px 10px; border-radius: 6px;
+  transition: all .2s; white-space: nowrap;
+}
+.nav-links a:hover { color: var(--text); background: var(--bg3); }
+.nav-badge {
+  margin-left: auto; font-size: .72rem; font-weight: 600;
+  background: var(--blue-dim); color: var(--blue);
+  border: 1px solid rgba(59,130,246,.25); padding: 4px 12px; border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ── HERO ── */
+.hero {
+  position: relative; overflow: hidden;
+  padding: 100px 60px 90px;
+  text-align: center;
+}
+.hero-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -20%, rgba(59,130,246,.18) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(139,92,246,.12) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 80%, rgba(6,182,212,.1) 0%, transparent 60%);
+}
+.hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: .75rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--cyan); border: 1px solid rgba(6,182,212,.3);
+  background: rgba(6,182,212,.07); padding: 6px 16px; border-radius: 20px;
+  margin-bottom: 28px;
+}
+.hero-eyebrow::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+h1.hero-title {
+  font-size: clamp(2.2rem, 5vw, 3.6rem);
+  font-weight: 800; line-height: 1.15;
+  background: linear-gradient(135deg, #e2e8f0 30%, var(--blue) 65%, var(--cyan) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 20px;
+}
+.hero-sub {
+  font-size: 1.05rem; color: var(--muted2); max-width: 680px; margin: 0 auto 48px;
+}
+.hero-kpis {
+  display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+}
+.hero-kpi {
+  background: var(--card); border: 1px solid var(--border);
+  padding: 20px 32px; border-radius: 14px; min-width: 140px;
+  transition: border-color .3s, transform .3s;
+}
+.hero-kpi:hover { border-color: var(--blue); transform: translateY(-3px); }
+.hero-kpi-val {
+  font-size: 2rem; font-weight: 800;
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero-kpi-label { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+
+/* ── SECTIONS ── */
+.section {
+  max-width: 1140px; margin: 0 auto;
+  padding: 80px 40px;
+}
+.section + .section { padding-top: 0; }
+.sec-label {
+  font-size: .7rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted);
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.sec-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.sec-title {
+  font-size: 1.9rem; font-weight: 800; margin-bottom: 14px;
+  line-height: 1.25;
+}
+.sec-title span {
+  background: linear-gradient(90deg, var(--blue), var(--cyan));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.sec-desc { color: var(--muted2); max-width: 680px; margin-bottom: 48px; font-size: .95rem; }
+
+/* ── OVERVIEW CARDS ── */
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+.ov-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 24px;
+  position: relative; overflow: hidden;
+  transition: border-color .3s, transform .3s;
+}
+.ov-card:hover { transform: translateY(-4px); }
+.ov-card.blue  { border-top: 3px solid var(--blue); }
+.ov-card.cyan  { border-top: 3px solid var(--cyan); }
+.ov-card.purple{ border-top: 3px solid var(--purple); }
+.ov-card.green { border-top: 3px solid var(--green); }
+.ov-card.amber { border-top: 3px solid var(--amber); }
+.ov-card.rose  { border-top: 3px solid var(--rose); }
+.ov-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; margin-bottom: 16px;
+}
+.ov-card.blue   .ov-icon { background: var(--blue-dim); }
+.ov-card.cyan   .ov-icon { background: var(--cyan-dim); }
+.ov-card.purple .ov-icon { background: var(--purple-dim); }
+.ov-card.green  .ov-icon { background: var(--green-dim); }
+.ov-card.amber  .ov-icon { background: var(--amber-dim); }
+.ov-card.rose   .ov-icon { background: rgba(244,63,94,.12); }
+.ov-title { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+.ov-desc  { font-size: .83rem; color: var(--muted2); line-height: 1.6; }
+
+/* ── ARCHITECTURE DIAGRAM ── */
+.arch-wrap {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 40px 32px; overflow-x: auto;
+}
+.arch-diagram {
+  display: flex; flex-direction: column; gap: 12px;
+  min-width: 720px;
+}
+.arch-row {
+  display: grid; gap: 10px;
+}
+.arch-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.arch-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.arch-row.cols-5 { grid-template-columns: repeat(5, 1fr); }
+.arch-row.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.arch-row.cols-2-span { grid-template-columns: 2fr 3fr; }
+.arch-node {
+  border-radius: 10px; padding: 12px 14px;
+  font-size: .78rem; font-weight: 600; text-align: center;
+  border: 1px solid;
+  position: relative;
+}
+.arch-node.blue   { background: var(--blue-dim);   border-color: rgba(59,130,246,.35);  color: #93c5fd; }
+.arch-node.cyan   { background: var(--cyan-dim);   border-color: rgba(6,182,212,.35);   color: #67e8f9; }
+.arch-node.purple { background: var(--purple-dim); border-color: rgba(139,92,246,.35);  color: #c4b5fd; }
+.arch-node.green  { background: var(--green-dim);  border-color: rgba(16,185,129,.35);  color: #6ee7b7; }
+.arch-node.amber  { background: var(--amber-dim);  border-color: rgba(245,158,11,.35);  color: #fcd34d; }
+.arch-node.rose   { background: rgba(244,63,94,.1);border-color: rgba(244,63,94,.3);    color: #fda4af; }
+.arch-node.gray   { background: rgba(100,116,139,.1); border-color: rgba(100,116,139,.3); color: var(--muted2); }
+.arch-label {
+  font-size: .65rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+  text-align: left; padding: 6px 4px 4px;
+}
+.arch-arrow {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; color: var(--muted); padding: 2px 0;
+  position: relative;
+}
+.arch-arrow::before, .arch-arrow::after {
+  content: ''; position: absolute;
+  left: 50%; transform: translateX(-50%);
+  width: 1px; height: 6px;
+  background: var(--border2);
+}
+.arch-arrow::before { top: 0; }
+.arch-arrow::after  { bottom: 0; }
+
+/* ── MODULE TABS ── */
+.mod-tabs {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 6px; border-radius: 12px; margin-bottom: 24px;
+}
+.mod-tab {
+  padding: 8px 18px; border-radius: 8px; border: none;
+  font-family: var(--font); font-size: .83rem; font-weight: 600;
+  color: var(--muted); background: transparent; cursor: pointer;
+  transition: all .2s; white-space: nowrap;
+}
+.mod-tab.active {
+  background: var(--blue); color: #fff;
+  box-shadow: 0 2px 12px rgba(59,130,246,.35);
+}
+.mod-tab:hover:not(.active) { color: var(--text); background: var(--bg3); }
+.mod-panel { display: none; }
+.mod-panel.active { display: block; }
+
+/* ── DETAIL CARDS ── */
+.detail-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+}
+@media(max-width:700px){ .detail-grid { grid-template-columns: 1fr; } }
+.detail-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px 22px;
+}
+.detail-card-title {
+  font-size: .88rem; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 14px;
+}
+.detail-card-title .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.detail-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.detail-list li {
+  font-size: .83rem; color: var(--muted2);
+  padding-left: 16px; position: relative; line-height: 1.55;
+}
+.detail-list li::before {
+  content: '▸'; position: absolute; left: 0;
+  color: var(--blue); font-size: .7rem; top: 3px;
+}
+.detail-list li strong { color: var(--text); font-weight: 600; }
+
+/* ── CODE BLOCK ── */
+.code-block {
+  background: #08111e; border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px; margin: 16px 0;
+  font-family: var(--mono); font-size: .78rem;
+  line-height: 1.75; overflow-x: auto;
+  color: #94a3b8;
+}
+.code-block .k { color: #7dd3fc; }
+.code-block .s { color: #86efac; }
+.code-block .c { color: #475569; font-style: italic; }
+.code-block .f { color: #c4b5fd; }
+.code-block .n { color: #fcd34d; }
+
+/* ── FLOW STEPS ── */
+.flow-steps {
+  display: flex; flex-direction: column; gap: 0;
+  border-left: 2px solid var(--border2); margin-left: 12px;
+}
+.flow-step {
+  display: flex; gap: 20px; padding: 0 0 32px 28px;
+  position: relative;
+}
+.flow-step::before {
+  content: ''; position: absolute; left: -9px; top: 4px;
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--blue); background: var(--bg);
+}
+.flow-step-num {
+  font-size: .7rem; font-weight: 700; color: var(--blue);
+  white-space: nowrap; padding-top: 3px; min-width: 32px;
+}
+.flow-step-body {}
+.flow-step-title { font-size: .95rem; font-weight: 700; margin-bottom: 6px; }
+.flow-step-desc  { font-size: .83rem; color: var(--muted2); line-height: 1.6; }
+.flow-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.flow-tag {
+  font-size: .7rem; font-weight: 600; padding: 3px 10px; border-radius: 6px;
+}
+.flow-tag.blue   { background: var(--blue-dim);   color: var(--blue); }
+.flow-tag.cyan   { background: var(--cyan-dim);   color: var(--cyan); }
+.flow-tag.green  { background: var(--green-dim);  color: var(--green); }
+.flow-tag.purple { background: var(--purple-dim); color: var(--purple); }
+.flow-tag.amber  { background: var(--amber-dim);  color: var(--amber); }
+
+/* ── TECH STACK ── */
+.stack-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+.stack-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 22px 20px;
+}
+.stack-card-title {
+  font-size: .8rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em;
+  margin-bottom: 14px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.stack-items { display: flex; flex-direction: column; gap: 10px; }
+.stack-item {
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.stack-badge {
+  font-size: .72rem; font-weight: 700; padding: 3px 9px; border-radius: 6px;
+  white-space: nowrap; min-width: 80px; text-align: center;
+}
+.stack-badge.rec  { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(59,130,246,.25); }
+.stack-badge.alt  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(16,185,129,.25); }
+.stack-badge.opt  { background: var(--amber-dim);  color: var(--amber);  border: 1px solid rgba(245,158,11,.25); }
+.stack-info { font-size: .8rem; color: var(--muted2); line-height: 1.5; }
+.stack-info strong { color: var(--text); font-size: .82rem; }
+
+/* ── TIMELINE ── */
+.timeline {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 16px; position: relative;
+}
+.timeline::before {
+  content: ''; position: absolute;
+  left: 12.5%; right: 12.5%; top: 28px;
+  height: 2px; background: var(--border2);
+}
+.tl-phase {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px 20px;
+  position: relative; transition: border-color .3s, transform .3s;
+}
+.tl-phase:hover { transform: translateY(-4px); }
+.tl-phase.p1 { border-top: 3px solid var(--blue); }
+.tl-phase.p2 { border-top: 3px solid var(--cyan); }
+.tl-phase.p3 { border-top: 3px solid var(--purple); }
+.tl-phase.p4 { border-top: 3px solid var(--green); }
+.tl-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  margin: 0 auto 16px; position: relative; z-index: 1;
+}
+.tl-phase.p1 .tl-dot { background: var(--blue);   box-shadow: 0 0 12px rgba(59,130,246,.5); }
+.tl-phase.p2 .tl-dot { background: var(--cyan);   box-shadow: 0 0 12px rgba(6,182,212,.5); }
+.tl-phase.p3 .tl-dot { background: var(--purple); box-shadow: 0 0 12px rgba(139,92,246,.5); }
+.tl-phase.p4 .tl-dot { background: var(--green);  box-shadow: 0 0 12px rgba(16,185,129,.5); }
+.tl-label { font-size: .68rem; font-weight: 700; color: var(--muted); text-align: center; margin-bottom: 12px; }
+.tl-title { font-size: .95rem; font-weight: 700; margin-bottom: 8px; }
+.tl-items { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.tl-items li { font-size: .78rem; color: var(--muted2); padding-left: 14px; position: relative; }
+.tl-items li::before { content: '·'; position: absolute; left: 2px; color: var(--muted); font-size: 1.1rem; top: -1px; }
+@media(max-width:800px){ .timeline { grid-template-columns: repeat(2,1fr); } }
+
+/* ── RISK TABLE ── */
+.risk-table {
+  width: 100%; border-collapse: collapse;
+  font-size: .83rem;
+}
+.risk-table th {
+  background: var(--bg2); padding: 12px 16px;
+  font-size: .75rem; font-weight: 700; color: var(--muted);
+  text-align: left; text-transform: uppercase; letter-spacing: .06em;
+  border-bottom: 1px solid var(--border);
+}
+.risk-table td {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  vertical-align: top; color: var(--muted2);
+}
+.risk-table tr:last-child td { border-bottom: none; }
+.risk-table tr:hover td { background: rgba(255,255,255,.02); }
+.risk-pill {
+  display: inline-block; font-size: .7rem; font-weight: 700;
+  padding: 3px 10px; border-radius: 6px;
+}
+.risk-pill.high   { background: rgba(244,63,94,.15);  color: var(--rose); }
+.risk-pill.medium { background: var(--amber-dim);     color: var(--amber); }
+.risk-pill.low    { background: var(--green-dim);     color: var(--green); }
+
+/* ── DIVIDER ── */
+.divider {
+  max-width: 1140px; margin: 0 auto;
+  height: 1px; background: var(--border); margin-left: 40px; margin-right: 40px;
+}
+
+/* ── FOOTER ── */
+footer {
+  text-align: center; padding: 48px 40px;
+  color: var(--muted); font-size: .8rem;
+  border-top: 1px solid var(--border);
+}
+footer a { color: var(--blue); text-decoration: none; }
+
+/* ── HIGHLIGHT BOX ── */
+.highlight-box {
+  background: linear-gradient(135deg, rgba(59,130,246,.1), rgba(6,182,212,.06));
+  border: 1px solid rgba(59,130,246,.25);
+  border-radius: 14px; padding: 24px 28px; margin: 24px 0;
+}
+.highlight-box p { font-size: .88rem; color: var(--muted2); line-height: 1.8; }
+.highlight-box p strong { color: var(--text); }
+
+/* ── INLINE TAG ── */
+.tag {
+  display: inline-block; font-size: .68rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 5px; vertical-align: middle;
+}
+.tag.blue   { background: var(--blue-dim);   color: var(--blue); }
+.tag.cyan   { background: var(--cyan-dim);   color: var(--cyan); }
+.tag.green  { background: var(--green-dim);  color: var(--green); }
+.tag.purple { background: var(--purple-dim); color: var(--purple); }
+.tag.amber  { background: var(--amber-dim);  color: var(--amber); }
+
+/* ── TWO COL ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media(max-width:700px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-logo">⬡ DW AI Agent</div>
+  <div class="nav-links">
+    <a href="#overview">方案概述</a>
+    <a href="#architecture">系统架构</a>
+    <a href="#modules">核心模块</a>
+    <a href="#stack">技术选型</a>
+    <a href="#roadmap">实施路线</a>
+    <a href="#risk">风险评估</a>
+  </div>
+  <div class="nav-badge">技术方案 v1.0</div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-eyebrow">Data Warehouse AI Agent · 技术可行性方案</div>
+  <h1 class="hero-title">数仓 AI Agent<br>技术方案</h1>
+  <p class="hero-sub">
+    以 Hive 元数据为核心知识源，构建覆盖自动化治理报告、智能问数 SQL 生成、
+    对话式知识问答的全栈 AI Agent 平台
+  </p>
+  <div class="hero-kpis">
+    <div class="hero-kpi">
+      <div class="hero-kpi-val">4</div>
+      <div class="hero-kpi-label">核心工作流模块</div>
+    </div>
+    <div class="hero-kpi">
+      <div class="hero-kpi-val">RAG</div>
+      <div class="hero-kpi-label">检索增强生成架构</div>
+    </div>
+    <div class="hero-kpi">
+      <div class="hero-kpi-val">3层</div>
+      <div class="hero-kpi-label">知识库分层设计</div>
+    </div>
+    <div class="hero-kpi">
+      <div class="hero-kpi-val">T+0</div>
+      <div class="hero-kpi-label">元数据实时同步</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── OVERVIEW ── -->
+<section class="section" id="overview">
+  <div class="sec-label">01 · 方案概述<span></span></div>
+  <h2 class="sec-title">面向数仓的 <span>AI 原生</span> 智能平台</h2>
+  <p class="sec-desc">
+    从 Hive Metastore 自动采集血缘、表结构、统计信息等元数据，构建数仓专属知识库，
+    并在此基础上部署四类智能工作流，将人工重复作业转化为 AI 自动化能力。
+  </p>
+  <div class="overview-grid">
+    <div class="ov-card blue">
+      <div class="ov-icon">🗂️</div>
+      <div class="ov-title">元数据知识库</div>
+      <div class="ov-desc">从 Hive Metastore 实时采集表结构、血缘依赖、分区信息、统计指标，向量化存储供 AI 检索。</div>
+    </div>
+    <div class="ov-card cyan">
+      <div class="ov-icon">📊</div>
+      <div class="ov-title">自动化治理报告</div>
+      <div class="ov-desc">Agent 定时拉取调度日志与质量指标，自动生成可读性强的 HTML/Markdown 分析报告，无需人工介入。</div>
+    </div>
+    <div class="ov-card purple">
+      <div class="ov-icon">💬</div>
+      <div class="ov-title">智能问数 Text-to-SQL</div>
+      <div class="ov-desc">用户用自然语言描述需求，Agent 结合元数据上下文生成准确 HiveSQL，支持多轮澄清与执行验证。</div>
+    </div>
+    <div class="ov-card green">
+      <div class="ov-icon">🤖</div>
+      <div class="ov-title">对话式知识问答</div>
+      <div class="ov-desc">面向业务人员的问答入口，支持"这张表是什么意思""字段 xxx 怎么算的"等自然语言查询。</div>
+    </div>
+    <div class="ov-card amber">
+      <div class="ov-icon">🔍</div>
+      <div class="ov-title">数据质量监控</div>
+      <div class="ov-desc">持续监控表数据新鲜度、空值率、异常值，通过 Agent 自动归因并推送告警摘要。</div>
+    </div>
+    <div class="ov-card rose">
+      <div class="ov-icon">🔗</div>
+      <div class="ov-title">血缘影响分析</div>
+      <div class="ov-desc">当上游表变更时，Agent 自动遍历下游血缘链路，生成影响范围报告及变更建议。</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── ARCHITECTURE ── -->
+<section class="section" id="architecture">
+  <div class="sec-label">02 · 系统架构<span></span></div>
+  <h2 class="sec-title">六层 <span>分层架构</span> 设计</h2>
+  <p class="sec-desc">
+    从数据源采集到最终用户交互，采用分层解耦设计，各层职责清晰，便于独立扩展与替换。
+  </p>
+  <div class="arch-wrap">
+    <div class="arch-diagram">
+
+      <!-- 用户层 -->
+      <div class="arch-label">👤 用户层 · User Layer</div>
+      <div class="arch-row cols-4">
+        <div class="arch-node gray">数据工程师<br><small style="font-weight:400;font-size:.7em">治理报告 / 告警</small></div>
+        <div class="arch-node gray">数据分析师<br><small style="font-weight:400;font-size:.7em">自然语言问数</small></div>
+        <div class="arch-node gray">业务人员<br><small style="font-weight:400;font-size:.7em">知识问答</small></div>
+        <div class="arch-node gray">外部系统<br><small style="font-weight:400;font-size:.7em">API 集成</small></div>
+      </div>
+      <div class="arch-arrow">↕</div>
+
+      <!-- 应用层 -->
+      <div class="arch-label">📱 应用层 · Application Layer</div>
+      <div class="arch-row cols-3">
+        <div class="arch-node blue">自动化治理报告<br><small style="font-weight:400;font-size:.7em">Airflow DAG → HTML Report</small></div>
+        <div class="arch-node purple">智能问数 Text-to-SQL<br><small style="font-weight:400;font-size:.7em">Chat UI / API</small></div>
+        <div class="arch-node cyan">对话式知识问答<br><small style="font-weight:400;font-size:.7em">Chatbot / 企微机器人</small></div>
+      </div>
+      <div class="arch-arrow">↕</div>
+
+      <!-- Agent 编排层 -->
+      <div class="arch-label">🤖 Agent 编排层 · Orchestration Layer</div>
+      <div class="arch-row cols-4">
+        <div class="arch-node amber">LangChain Agent<br><small style="font-weight:400;font-size:.7em">工具调用 / 规划</small></div>
+        <div class="arch-node amber">Prompt Templates<br><small style="font-weight:400;font-size:.7em">域适配提示词</small></div>
+        <div class="arch-node amber">RAG Pipeline<br><small style="font-weight:400;font-size:.7em">检索 → 增强 → 生成</small></div>
+        <div class="arch-node amber">Memory Manager<br><small style="font-weight:400;font-size:.7em">多轮对话记忆</small></div>
+      </div>
+      <div class="arch-arrow">↕</div>
+
+      <!-- 知识层 -->
+      <div class="arch-label">🧠 知识层 · Knowledge Layer</div>
+      <div class="arch-row cols-3">
+        <div class="arch-node green">向量知识库<br><small style="font-weight:400;font-size:.7em">Milvus · 元数据 Embedding</small></div>
+        <div class="arch-node green">结构化元数据库<br><small style="font-weight:400;font-size:.7em">PostgreSQL · 表/字段/血缘</small></div>
+        <div class="arch-node green">大语言模型<br><small style="font-weight:400;font-size:.7em">GPT-4o / Qwen2.5-72B</small></div>
+      </div>
+      <div class="arch-arrow">↕</div>
+
+      <!-- 采集层 -->
+      <div class="arch-label">⚙️ 采集与处理层 · Ingestion Layer</div>
+      <div class="arch-row cols-4">
+        <div class="arch-node rose">元数据 ETL<br><small style="font-weight:400;font-size:.7em">PyHive / JDBC</small></div>
+        <div class="arch-node rose">文本向量化<br><small style="font-weight:400;font-size:.7em">Embedding 服务</small></div>
+        <div class="arch-node rose">调度日志 Parser<br><small style="font-weight:400;font-size:.7em">Airflow / 自定义</small></div>
+        <div class="arch-node rose">增量同步<br><small style="font-weight:400;font-size:.7em">Kafka / Cron</small></div>
+      </div>
+      <div class="arch-arrow">↕</div>
+
+      <!-- 数据源层 -->
+      <div class="arch-label">🗄️ 数据源层 · Data Source Layer</div>
+      <div class="arch-row cols-5">
+        <div class="arch-node gray">Hive Metastore<br><small style="font-weight:400;font-size:.7em">表结构 / 分区</small></div>
+        <div class="arch-node gray">HDFS<br><small style="font-weight:400;font-size:.7em">存储统计</small></div>
+        <div class="arch-node gray">Airflow<br><small style="font-weight:400;font-size:.7em">调度元信息</small></div>
+        <div class="arch-node gray">业务文档<br><small style="font-weight:400;font-size:.7em">指标定义 / Wiki</small></div>
+        <div class="arch-node gray">数据质量<br><small style="font-weight:400;font-size:.7em">Great Expectations</small></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── MODULES ── -->
+<section class="section" id="modules">
+  <div class="sec-label">03 · 核心模块详解<span></span></div>
+  <h2 class="sec-title">四大 <span>核心工作流</span></h2>
+  <p class="sec-desc">每个模块独立可部署，可按优先级逐步落地，共享底层知识库与 LLM 服务。</p>
+
+  <div class="mod-tabs" id="modTabs">
+    <button class="mod-tab active" data-panel="p-meta">🗂 元数据知识库</button>
+    <button class="mod-tab" data-panel="p-report">📊 自动化治理报告</button>
+    <button class="mod-tab" data-panel="p-sql">💬 智能问数 SQL</button>
+    <button class="mod-tab" data-panel="p-qa">🤖 对话式问答</button>
+  </div>
+
+  <!-- ── MODULE 1: METADATA ── -->
+  <div class="mod-panel active" id="p-meta">
+    <div class="highlight-box">
+      <p>
+        <strong>核心思路：</strong>从 Hive Metastore 提取结构化元数据（表名、字段、注释、分区、血缘、统计信息），
+        转化为自然语言描述文档后向量化存储，形成数仓专属知识图谱。
+        这是所有 Agent 能力的基础底座，数据质量直接决定上层应用效果。
+      </p>
+    </div>
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 1</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">连接 Hive Metastore，全量抽取元数据</div>
+          <div class="flow-step-desc">通过 PyHive / Thrift API 连接 HMS（Hive Metastore Server），按库/表/字段逐层抽取：表基础信息、字段类型与注释、分区列定义、表存储格式、HDFS 路径与文件大小统计。同时抽取 Airflow DAG 中的依赖关系构建血缘图。</div>
+          <div class="flow-tags">
+            <span class="flow-tag blue">PyHive</span>
+            <span class="flow-tag cyan">Thrift API</span>
+            <span class="flow-tag green">SQLAlchemy</span>
+            <span class="flow-tag purple">NetworkX 血缘图</span>
+          </div>
+          <div class="code-block"><span class="c"># 连接 HMS 抽取表元数据示例</span>
+<span class="k">from</span> pyhive <span class="k">import</span> hive
+<span class="k">import</span> json
+
+conn = hive.connect(host=<span class="s">'hive-metastore'</span>, port=<span class="n">10000</span>)
+cursor = conn.cursor()
+
+<span class="c"># 获取所有表的字段 + 注释</span>
+cursor.execute(<span class="s">"""
+  SELECT t.TBL_NAME, c.COLUMN_NAME, c.TYPE_NAME, c.COMMENT
+  FROM TBLS t JOIN COLUMNS_V2 c ON t.CD_ID = c.CD_ID
+  WHERE t.DB_ID = (SELECT DB_ID FROM DBS WHERE NAME = %s)
+"""</span>, (db_name,))
+rows = cursor.fetchall()</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 2</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">元数据文档化 —— 结构化 → 自然语言</div>
+          <div class="flow-step-desc">将原始元数据转换为标准化的"表描述文档"，包含表的业务用途（从注释/Wiki推断）、字段说明、典型 SQL 使用示例、上下游血缘摘要等，每张表生成一份 Markdown 文档作为 RAG 的原始语料。</div>
+          <div class="flow-tags">
+            <span class="flow-tag cyan">Jinja2 模板</span>
+            <span class="flow-tag amber">LLM 注释补全</span>
+          </div>
+          <div class="code-block"><span class="c"># 自动生成表描述文档模板</span>
+<span class="n">TEMPLATE</span> = <span class="s">"""
+# 表：{db}.{table}
+
+**业务描述**：{desc}
+**所属分层**：{layer} | **负责人**：{owner}
+**分区字段**：{partitions} | **更新频率**：{cron}
+
+## 字段说明
+{fields_md}
+
+## 上游依赖
+{upstream}
+
+## 典型查询示例
+{sql_examples}
+"""</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 3</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">向量化存储 —— 三层知识库</div>
+          <div class="flow-step-desc">
+            按用途分三层存储，召回时按 Layer 路由，避免相互干扰：<br>
+            <strong>① 表级知识库</strong>：每张表的完整描述，支持"找到某类数据"的语义检索；<br>
+            <strong>② 字段级知识库</strong>：细粒度字段含义、枚举值说明，支持 SQL 生成时列名匹配；<br>
+            <strong>③ 血缘知识库</strong>：以自然语言描述血缘路径，支持影响分析问答。
+          </div>
+          <div class="flow-tags">
+            <span class="flow-tag blue">Milvus 向量库</span>
+            <span class="flow-tag green">BGE-M3 Embedding</span>
+            <span class="flow-tag cyan">Hybrid Search</span>
+          </div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 4</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">增量同步 —— 元数据变更监听</div>
+          <div class="flow-step-desc">监听 HMS 的 DDL 事件（表增删改、字段变更），通过 Hive Metastore Hook 或定时对比方式捕获变更，触发对应向量块的更新/删除，确保知识库与实际元数据保持一致，通常延迟 ≤ 15 分钟。</div>
+          <div class="flow-tags">
+            <span class="flow-tag amber">Airflow 定时</span>
+            <span class="flow-tag purple">Change Detection</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-card">
+        <div class="detail-card-title"><div class="dot" style="background:var(--blue)"></div>抽取的核心元数据字段</div>
+        <ul class="detail-list">
+          <li><strong>表基础信息：</strong>db_name、table_name、owner、create_time、table_type、storage_format</li>
+          <li><strong>字段信息：</strong>column_name、data_type、comment、nullable、is_partition</li>
+          <li><strong>统计信息：</strong>row_count、file_size、last_ddl_time、num_files、num_partitions</li>
+          <li><strong>血缘关系：</strong>upstream_tables、downstream_tables、lineage_depth</li>
+          <li><strong>调度信息：</strong>job_name、cron_expr、avg_duration、sla_threshold</li>
+          <li><strong>质量信息：</strong>null_rate、max_val、min_val、last_check_time</li>
+        </ul>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title"><div class="dot" style="background:var(--cyan)"></div>知识库分层与召回策略</div>
+        <ul class="detail-list">
+          <li><strong>L1 全局层：</strong>库级别摘要，用于"哪个库有XX数据"类问题，topK=3</li>
+          <li><strong>L2 表级层：</strong>表描述+字段摘要，用于 SQL 生成时选表，topK=5~10</li>
+          <li><strong>L3 字段层：</strong>字段级别精确匹配，用于列名补全，topK=15</li>
+          <li><strong>混合检索：</strong>语义向量搜索 + BM25 关键词检索，RRF 融合排序</li>
+          <li><strong>重排序：</strong>Cross-Encoder 对 topK 结果精排，过滤低相关文档</li>
+          <li><strong>缓存：</strong>热点查询结果 Redis 缓存，TTL 1小时</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODULE 2: REPORT ── -->
+  <div class="mod-panel" id="p-report">
+    <div class="highlight-box">
+      <p>
+        <strong>核心思路：</strong>Agent 作为"自动化报告员"，在 Airflow 中作为 Task 嵌入现有调度流水线。
+        每次调度周期结束后，Agent 自动拉取质量指标、运行日志、SLA 达成情况，
+        结合历史对比，生成结构化报告并推送。人工只需审阅结论，不再手动整理数据。
+      </p>
+    </div>
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 1</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">触发条件 —— 事件驱动 + 定时双模式</div>
+          <div class="flow-step-desc">支持两种触发：① Airflow DAG 的 on_success_callback，在调度周期完成后自动触发报告生成 Agent；② 定时触发（每日 10:00）生成前一天的汇总报告。Agent 接收上下文参数（日期范围、库名范围、关注指标）。</div>
+          <div class="flow-tags"><span class="flow-tag blue">Airflow Callback</span><span class="flow-tag cyan">Cron Trigger</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 2</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">数据采集工具调用 —— Agent Tool Use</div>
+          <div class="flow-step-desc">
+            Agent 按需调用注册好的工具函数采集指标：
+          </div>
+          <div class="code-block"><span class="c"># Agent 工具定义示例（LangChain Tool）</span>
+<span class="k">@tool</span>
+<span class="k">def</span> <span class="f">get_sla_stats</span>(date: str, db_filter: list[str]) -> dict:
+    <span class="s">"""获取指定日期各库SLA达成率、平均完成时间、失败作业列表"""</span>
+    <span class="k">return</span> query_airflow_logs(date, db_filter)
+
+<span class="k">@tool</span>
+<span class="k">def</span> <span class="f">get_quality_metrics</span>(tables: list[str]) -> dict:
+    <span class="s">"""获取表数据质量指标：空值率、行数变化、异常分布"""</span>
+    <span class="k">return</span> query_quality_db(tables)
+
+<span class="c"># Agent 自主决定调用哪些工具、以什么顺序</span>
+agent = create_react_agent(llm, tools=[get_sla_stats, get_quality_metrics, ...])</div>
+          <div class="flow-tags"><span class="flow-tag purple">ReAct Agent</span><span class="flow-tag amber">Tool Use</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 3</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">LLM 撰写报告正文</div>
+          <div class="flow-step-desc">将采集的结构化数据 + 历史对比数据注入 Prompt，LLM 按固定报告模板生成自然语言叙述，包括：总结摘要、异常归因、优化建议、优先级排序。所有数字均由工具函数提供，LLM 只负责"写作"不负责"算数"。</div>
+          <div class="flow-tags"><span class="flow-tag blue">Structured Output</span><span class="flow-tag green">JSON Schema</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 4</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">报告渲染与推送</div>
+          <div class="flow-step-desc">生成的报告内容渲染为 HTML（复用当前项目的报告模板），同时推送：① 企业微信/钉钉 Webhook（摘要卡片）；② 邮件（完整 HTML 报告）；③ 持久化到对象存储（OSS/S3），提供历史报告查阅。</div>
+          <div class="flow-tags"><span class="flow-tag cyan">HTML Report</span><span class="flow-tag amber">企微 Webhook</span><span class="flow-tag purple">Email SMTP</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-card">
+        <div class="detail-card-title"><div class="dot" style="background:var(--cyan)"></div>报告覆盖的分析维度</div>
+        <ul class="detail-list">
+          <li><strong>SLA 完成情况：</strong>各库各层完成率、超时作业、P90 耗时趋势</li>
+          <li><strong>资源消耗：</strong>内存/核时 Top 10，与上期对比变化量</li>
+          <li><strong>调度 Gap：</strong>冗余等待作业识别，调整建议</li>
+          <li><strong>数据质量：</strong>空值异常、行数波动、分区断档检测</li>
+          <li><strong>血缘风险：</strong>高下游依赖作业延迟风险预警</li>
+          <li><strong>优化 ROI：</strong>与历史基准期对比改进量化</li>
+        </ul>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title"><div class="dot" style="background:var(--green)"></div>报告质量保障机制</div>
+        <ul class="detail-list">
+          <li><strong>数字来源标注：</strong>所有数字附来源工具名，可追溯</li>
+          <li><strong>Hallucination 防护：</strong>LLM 禁止凭空生成数字，仅基于工具返回数据</li>
+          <li><strong>自动审核：</strong>报告中数字与原始数据做一致性校验，不通过则回滚人工</li>
+          <li><strong>A/B 对比：</strong>新旧两版报告生成流程并行运行，人工验收后再切换</li>
+          <li><strong>人工审核入口：</strong>报告含"异议反馈"链接，修正结果用于微调</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODULE 3: TEXT-TO-SQL ── -->
+  <div class="mod-panel" id="p-sql">
+    <div class="highlight-box">
+      <p>
+        <strong>核心思路：</strong>Text-to-SQL 是本方案技术难度最高的模块。
+        通过 RAG 检索相关表结构注入 Prompt，结合 Schema Linking（将问句中实体映射到实际字段），
+        生成符合 HiveSQL 规范的查询语句，并在沙箱环境执行验证，实现"一问一 SQL"。
+      </p>
+    </div>
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 1</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">问题理解与实体识别</div>
+          <div class="flow-step-desc">对用户输入进行 NLU 处理：识别时间范围（"上周"→具体日期）、业务实体（"GMV"→对应字段）、聚合方式（求和/均值/分组）、过滤条件（"dws_pa 库"）。必要时主动追问澄清，如"您说的用户是指注册用户还是活跃用户？"</div>
+          <div class="flow-tags"><span class="flow-tag blue">Intent Classification</span><span class="flow-tag cyan">Entity Extraction</span><span class="flow-tag amber">Time Normalization</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 2</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Schema Linking —— 找到相关表和字段</div>
+          <div class="flow-step-desc">用识别出的实体检索向量知识库，获取 Top-K 候选表；对候选表中的字段做二次相似度匹配，过滤不相关字段。最终构建精简版 Schema 上下文（仅包含相关列），避免 Prompt 过长。</div>
+          <div class="code-block"><span class="c"># Schema Linking 核心流程</span>
+user_query = <span class="s">"查询上周 dws_pa 库中每个渠道的新增用户数"</span>
+
+<span class="c"># 1. 向量检索候选表</span>
+candidates = vector_store.search(user_query, collection=<span class="s">"table_level"</span>, top_k=<span class="n">8</span>)
+
+<span class="c"># 2. 字段级精确匹配</span>
+schema_ctx = build_schema_context(candidates, user_query)
+<span class="c"># → 仅保留: dws_pa.user_daily_new(channel, new_user_cnt, dt)</span>
+
+<span class="c"># 3. 注入 Prompt 生成 SQL</span>
+sql = llm.invoke(SQL_PROMPT.format(schema=schema_ctx, query=user_query))</div>
+          <div class="flow-tags"><span class="flow-tag purple">Vector Search</span><span class="flow-tag green">Field Matching</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 3</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">SQL 生成 —— HiveSQL 规范约束</div>
+          <div class="flow-step-desc">
+            Prompt 中注入 HiveSQL 编写规范约束（本项目的 user_rules），要求：大写关键词、必须带 dt 分区过滤、不允许 SELECT *、聚合层使用 CTE。
+            生成后自动做语法检查（EXPLAIN 语句）。
+          </div>
+          <div class="flow-tags"><span class="flow-tag blue">HiveSQL Rules</span><span class="flow-tag cyan">EXPLAIN Check</span><span class="flow-tag amber">CTE Style</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 4</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">沙箱执行验证 + 结果解读</div>
+          <div class="flow-step-desc">在只读 Hive 账号下执行生成的 SQL（限制 LIMIT 1000），若执行成功则将结果数据交给 LLM 用自然语言解读（"上周各渠道中，App 渠道新增用户最多，达 12.3万"）；若执行失败则将报错信息反馈给 Agent 进行自我修正（最多 3 次重试）。</div>
+          <div class="flow-tags"><span class="flow-tag green">Read-Only Execution</span><span class="flow-tag rose">Self-Correction</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-card">
+        <div class="detail-card-title"><div class="dot" style="background:var(--purple)"></div>Text-to-SQL 准确率提升策略</div>
+        <ul class="detail-list">
+          <li><strong>Few-shot 示例：</strong>在 Prompt 中注入 3~5 个领域内高质量 SQL 示例</li>
+          <li><strong>Self-consistency：</strong>生成 3 个候选 SQL，投票选最稳定的一个</li>
+          <li><strong>Schema Filter：</strong>精减 Schema 只保留相关字段，减少干扰</li>
+          <li><strong>SQL 微调：</strong>收集人工纠错样本对 LLM 进行 LoRA 微调（迭代优化）</li>
+          <li><strong>Fallback：</strong>置信度低时，展示 SQL 草稿请用户确认后再执行</li>
+          <li><strong>业务词典：</strong>维护"GMV→order_amount、DAU→active_user_cnt"映射表</li>
+        </ul>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title"><div class="dot" style="background:var(--amber)"></div>安全与权限控制</div>
+        <ul class="detail-list">
+          <li><strong>只读账号：</strong>Agent 使用专用 Hive 只读账号，无 INSERT/DROP 权限</li>
+          <li><strong>SQL 白名单：</strong>只允许 SELECT，拦截 DDL/DML/LOAD 等危险语句</li>
+          <li><strong>资源限制：</strong>每次查询限制 LIMIT 1000、execution_timeout 60s</li>
+          <li><strong>数据脱敏：</strong>结果中的 PII 字段（手机、邮箱）自动脱敏后返回</li>
+          <li><strong>操作审计：</strong>所有 SQL 执行记录入审计日志，可追溯到用户</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODULE 4: Q&A ── -->
+  <div class="mod-panel" id="p-qa">
+    <div class="highlight-box">
+      <p>
+        <strong>核心思路：</strong>面向业务人员的低门槛知识问答入口。
+        用户不需要懂 SQL，直接用中文提问"xxx 表是干什么的""dws_pa 和 ods_pa 有什么区别"
+        "某个指标最近为什么波动"，Agent 从知识库检索并组织自然语言答案。
+      </p>
+    </div>
+    <div class="two-col">
+      <div>
+        <div class="flow-steps">
+          <div class="flow-step">
+            <div class="flow-step-num">问答流程</div>
+            <div class="flow-step-body">
+              <div class="flow-step-title">问题分类路由</div>
+              <div class="flow-step-desc">将用户问题分类为：元数据查询型 / 数据值查询型 / 流程说明型，路由到不同处理链路，避免资源浪费。</div>
+              <div class="flow-tags"><span class="flow-tag blue">Router Chain</span></div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-step-num">知识检索</div>
+            <div class="flow-step-body">
+              <div class="flow-step-title">多源混合检索</div>
+              <div class="flow-step-desc">同时检索：向量知识库（元数据文档）+ 结构化数据库（精确查表）+ 历史问答对（缓存常见问题），多路结果融合排序。</div>
+              <div class="flow-tags"><span class="flow-tag cyan">Hybrid Retrieval</span></div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-step-num">答案生成</div>
+            <div class="flow-step-body">
+              <div class="flow-step-title">引用来源透明化</div>
+              <div class="flow-step-desc">答案中注明引用的知识来源（哪张表的注释、哪条血缘记录），用户可点击溯源，增强可信度。</div>
+              <div class="flow-tags"><span class="flow-tag green">Citations</span><span class="flow-tag amber">Source Tracing</span></div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-step-num">持续优化</div>
+            <div class="flow-step-body">
+              <div class="flow-step-title">用户反馈闭环</div>
+              <div class="flow-step-desc">每条回答附"👍 有帮助 / 👎 有误"反馈按钮，负反馈触发人工审核，合格样本加入训练集，持续优化召回质量。</div>
+              <div class="flow-tags"><span class="flow-tag purple">RLHF 反馈</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="detail-card" style="margin-bottom:16px">
+          <div class="detail-card-title"><div class="dot" style="background:var(--cyan)"></div>典型问答场景示例</div>
+          <ul class="detail-list">
+            <li><strong>"dws_pa.order_daily 是什么表？"</strong><br>→ 返回业务描述、字段列表、更新频率、负责人</li>
+            <li><strong>"channel_type 字段有哪些取值？"</strong><br>→ 返回枚举值说明及统计分布（top 5）</li>
+            <li><strong>"dws_pa 和 ods_pa 有什么区别？"</strong><br>→ 对比两库的分层定位、字段粒度差异</li>
+            <li><strong>"order_amount 昨天比前天少了30%，为什么？"</strong><br>→ 检查上游数据新鲜度、分区完整性、质量异常</li>
+            <li><strong>"这张表被哪些下游作业依赖？"</strong><br>→ 遍历血缘图，返回直接/间接下游列表</li>
+          </ul>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title"><div class="dot" style="background:var(--green)"></div>接入渠道规划</div>
+          <ul class="detail-list">
+            <li><strong>企业微信机器人：</strong>@机器人 直接提问，适合日常快速查询</li>
+            <li><strong>独立 Chat 页面：</strong>集成到内部数据门户，支持多轮对话历史</li>
+            <li><strong>Jupyter 插件：</strong>在 Notebook 中直接 %ask "问题"，返回表结构和 SQL</li>
+            <li><strong>REST API：</strong>外部系统通过 API 集成，支持 SSE 流式响应</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── TECH STACK ── -->
+<section class="section" id="stack">
+  <div class="sec-label">04 · 技术选型<span></span></div>
+  <h2 class="sec-title">全栈 <span>技术选型</span> 建议</h2>
+  <p class="sec-desc">推荐方案优先考虑中文效果、私有化部署能力与社区活跃度，提供替代方案供按需选择。</p>
+  <div class="stack-grid">
+    <div class="stack-card">
+      <div class="stack-card-title">🤖 大语言模型 (LLM)</div>
+      <div class="stack-items">
+        <div class="stack-item">
+          <span class="stack-badge rec">推荐</span>
+          <div class="stack-info"><strong>Qwen2.5-72B-Instruct</strong><br>阿里开源，中文最优，支持私有化部署，SQL 任务表现突出</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge alt">备选A</span>
+          <div class="stack-info"><strong>GPT-4o (Azure OpenAI)</strong><br>综合能力强，企业级 SLA，但数据出境需审批</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge opt">备选B</span>
+          <div class="stack-info"><strong>DeepSeek-V3</strong><br>代码/SQL 能力极强，国产低成本，API 价格优势明显</div>
+        </div>
+      </div>
+    </div>
+    <div class="stack-card">
+      <div class="stack-card-title">🔢 Embedding 模型</div>
+      <div class="stack-items">
+        <div class="stack-item">
+          <span class="stack-badge rec">推荐</span>
+          <div class="stack-info"><strong>BGE-M3 (BAAI)</strong><br>多语言、多粒度，支持 dense+sparse 混合检索，私有化友好</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge alt">备选A</span>
+          <div class="stack-info"><strong>text-embedding-3-small</strong><br>OpenAI 出品，效果稳定，按量计费，适合快速起步</div>
+        </div>
+      </div>
+    </div>
+    <div class="stack-card">
+      <div class="stack-card-title">📦 向量数据库</div>
+      <div class="stack-items">
+        <div class="stack-item">
+          <span class="stack-badge rec">推荐</span>
+          <div class="stack-info"><strong>Milvus 2.x (Standalone)</strong><br>亿级向量支持，本地部署，混合检索能力强，中文社区活跃</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge alt">备选A</span>
+          <div class="stack-info"><strong>Chroma</strong><br>轻量级，开发期快速验证，适合 POC 阶段</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge opt">备选B</span>
+          <div class="stack-info"><strong>PGVector (PostgreSQL)</strong><br>若已有 PG 实例，零额外运维成本，中小规模足够</div>
+        </div>
+      </div>
+    </div>
+    <div class="stack-card">
+      <div class="stack-card-title">⚙️ Agent 框架</div>
+      <div class="stack-items">
+        <div class="stack-item">
+          <span class="stack-badge rec">推荐</span>
+          <div class="stack-info"><strong>LangChain + LangGraph</strong><br>工具调用生态最完整，LangGraph 支持多 Agent 协作与状态机</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge alt">备选A</span>
+          <div class="stack-info"><strong>LlamaIndex</strong><br>RAG 管道更专注，元数据检索场景配置更简洁</div>
+        </div>
+      </div>
+    </div>
+    <div class="stack-card">
+      <div class="stack-card-title">🌐 后端 API</div>
+      <div class="stack-items">
+        <div class="stack-item">
+          <span class="stack-badge rec">推荐</span>
+          <div class="stack-info"><strong>FastAPI + Python 3.11</strong><br>异步高性能，与 LangChain 生态无缝集成，SSE 流式响应支持</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge opt">可选</span>
+          <div class="stack-info"><strong>Redis (缓存 + 消息队列)</strong><br>热点问答缓存、异步任务队列（Celery backend）</div>
+        </div>
+      </div>
+    </div>
+    <div class="stack-card">
+      <div class="stack-card-title">🎨 前端界面</div>
+      <div class="stack-items">
+        <div class="stack-item">
+          <span class="stack-badge rec">推荐</span>
+          <div class="stack-info"><strong>Next.js 14 + shadcn/ui</strong><br>SSR 友好，组件库成熟，流式输出支持好</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge alt">备选A</span>
+          <div class="stack-info"><strong>Streamlit</strong><br>纯 Python，数据团队 1~2 天可完成原型，适合内部工具</div>
+        </div>
+      </div>
+    </div>
+    <div class="stack-card">
+      <div class="stack-card-title">🔄 工作流编排</div>
+      <div class="stack-items">
+        <div class="stack-item">
+          <span class="stack-badge rec">推荐</span>
+          <div class="stack-info"><strong>Apache Airflow 2.x</strong><br>现有调度系统，新增 PythonOperator 即可集成 Agent，无额外学习成本</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge opt">可选</span>
+          <div class="stack-info"><strong>Prefect / Dagster</strong><br>更现代的 Python-native 编排，若计划重建调度系统可考虑</div>
+        </div>
+      </div>
+    </div>
+    <div class="stack-card">
+      <div class="stack-card-title">📊 监控与可观测性</div>
+      <div class="stack-items">
+        <div class="stack-item">
+          <span class="stack-badge rec">推荐</span>
+          <div class="stack-info"><strong>LangSmith</strong><br>LangChain 原生 tracing，可视化每次 Agent 调用链路，便于调试</div>
+        </div>
+        <div class="stack-item">
+          <span class="stack-badge alt">备选A</span>
+          <div class="stack-info"><strong>Prometheus + Grafana</strong><br>通用监控，覆盖 API 延迟、LLM token 消耗、向量检索耗时</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── ROADMAP ── -->
+<section class="section" id="roadmap">
+  <div class="sec-label">05 · 实施路线图<span></span></div>
+  <h2 class="sec-title">四阶段 <span>渐进式</span> 落地</h2>
+  <p class="sec-desc">
+    每个阶段交付独立可用的能力，不依赖后续阶段完成，降低实施风险，尽早产生价值。
+  </p>
+  <div class="timeline">
+    <div class="tl-phase p1">
+      <div class="tl-dot"></div>
+      <div class="tl-label">第一阶段 · 第 1~4 周</div>
+      <div class="tl-title">基础设施 & 知识库</div>
+      <ul class="tl-items">
+        <li>搭建 Milvus + PostgreSQL 基础设施</li>
+        <li>完成 Hive 元数据全量采集脚本</li>
+        <li>实现表/字段描述文档生成</li>
+        <li>完成向量化存储（三层知识库）</li>
+        <li>验证检索召回准确率 ≥ 80%</li>
+        <li>搭建 FastAPI 基础服务框架</li>
+      </ul>
+    </div>
+    <div class="tl-phase p2">
+      <div class="tl-dot"></div>
+      <div class="tl-label">第二阶段 · 第 5~8 周</div>
+      <div class="tl-title">对话问答 & Text-to-SQL MVP</div>
+      <ul class="tl-items">
+        <li>实现基础 Q&A 问答链（RAG）</li>
+        <li>上线企业微信机器人入口</li>
+        <li>Text-to-SQL 单表查询能力</li>
+        <li>SQL 沙箱执行验证机制</li>
+        <li>开始收集用户反馈样本</li>
+        <li>单表 SQL 准确率目标 ≥ 70%</li>
+      </ul>
+    </div>
+    <div class="tl-phase p3">
+      <div class="tl-dot"></div>
+      <div class="tl-label">第三阶段 · 第 9~12 周</div>
+      <div class="tl-title">自动化报告 & 多表 SQL</div>
+      <ul class="tl-items">
+        <li>集成 Airflow，实现报告自动生成</li>
+        <li>完成 SLA / 质量 / Gap 三类报告</li>
+        <li>Text-to-SQL 支持多表 JOIN</li>
+        <li>增量元数据同步机制上线</li>
+        <li>数据质量监控 Agent 上线</li>
+        <li>多表 SQL 准确率目标 ≥ 60%</li>
+      </ul>
+    </div>
+    <div class="tl-phase p4">
+      <div class="tl-dot"></div>
+      <div class="tl-label">第四阶段 · 第 13~16 周</div>
+      <div class="tl-title">智能化增强 & 生产稳定化</div>
+      <ul class="tl-items">
+        <li>基于反馈样本 LoRA 微调 LLM</li>
+        <li>血缘影响分析 Agent 上线</li>
+        <li>独立 Chat Web 页面上线</li>
+        <li>完善监控、告警、降级机制</li>
+        <li>文档与运维手册沉淀</li>
+        <li>全面性能压测与优化</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── RISK ── -->
+<section class="section" id="risk">
+  <div class="sec-label">06 · 风险评估<span></span></div>
+  <h2 class="sec-title">风险识别与 <span>应对策略</span></h2>
+  <p class="sec-desc">提前识别主要风险点，制定缓解措施，避免实施过程中出现不可控情况。</p>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+    <table class="risk-table">
+      <thead>
+        <tr>
+          <th style="width:18%">风险点</th>
+          <th style="width:10%">等级</th>
+          <th style="width:32%">风险描述</th>
+          <th>应对策略</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="color:var(--text);font-weight:600">元数据注释质量差</td>
+          <td><span class="risk-pill high">高</span></td>
+          <td>大量表/字段无中文注释，影响 RAG 检索质量和 LLM 理解准确率</td>
+          <td>① 用 LLM 结合表名 + 字段名 + 示例数据自动补全注释；② 建立注释质量评分机制，低分表人工优先补录；③ 接受部分准确率损失，随注释改善迭代</td>
+        </tr>
+        <tr>
+          <td style="color:var(--text);font-weight:600">LLM Hallucination</td>
+          <td><span class="risk-pill high">高</span></td>
+          <td>SQL 生成或问答中 LLM 捏造不存在的表名、字段名，导致执行失败或数据错误</td>
+          <td>① Text-to-SQL 强制走 Schema Linking，LLM 不得创造新字段；② 所有数字必须来源于工具调用结果；③ SQL 执行前做语法 + Schema 合法性校验；④ 置信度低时展示原始上下文供用户核查</td>
+        </tr>
+        <tr>
+          <td style="color:var(--text);font-weight:600">API 成本失控</td>
+          <td><span class="risk-pill medium">中</span></td>
+          <td>高频问答导致 LLM API 调用量超预期，月度成本超出预算</td>
+          <td>① 热点问题答案缓存（Redis TTL 1小时）；② Prompt 精简，控制 token 消耗；③ 设置每用户每日调用配额；④ 非敏感问答可路由至小模型（Qwen-7B）降成本</td>
+        </tr>
+        <tr>
+          <td style="color:var(--text);font-weight:600">数据安全合规</td>
+          <td><span class="risk-pill medium">中</span></td>
+          <td>元数据（表名、字段）通过 LLM API 出境；SQL 执行可能返回敏感数据</td>
+          <td>① 优先选用支持私有化部署的 LLM（Qwen/DeepSeek）；② 若使用云 API，对表名/字段名做脱敏替换后再传入；③ SQL 结果中 PII 字段自动遮盖；④ 通过数据安全团队的合规审查</td>
+        </tr>
+        <tr>
+          <td style="color:var(--text);font-weight:600">Hive 查询资源占用</td>
+          <td><span class="risk-pill medium">中</span></td>
+          <td>Text-to-SQL 大量查询请求可能影响生产 Hive 集群稳定性</td>
+          <td>① 使用独立只读 Hive 账号，配置专用 YARN 队列；② 强制加 LIMIT 上限 + 执行超时（60s）；③ 查询结果缓存，同一 SQL 24小时内不重复执行；④ 非工作时间批量预计算热点查询</td>
+        </tr>
+        <tr>
+          <td style="color:var(--text);font-weight:600">团队 AI 接受度</td>
+          <td><span class="risk-pill low">低</span></td>
+          <td>用户对 AI 生成内容不信任，或认为准确率不够高而不愿使用</td>
+          <td>① 答案来源透明可溯，增强信任；② 设定合理预期（非100%准确的助手）；③ 从内部工程师开始推广，收集正向反馈案例；④ 发布准确率指标看板，持续公示改进进展</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── RESOURCE ── -->
+<section class="section">
+  <div class="sec-label">07 · 资源与成本估算<span></span></div>
+  <h2 class="sec-title">实施资源 <span>参考估算</span></h2>
+  <p class="sec-desc">基于私有化部署方案（Qwen2.5-72B + Milvus），以下为参考量级，具体以实际情况为准。</p>
+  <div class="overview-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+    <div class="ov-card blue" style="text-align:center">
+      <div style="font-size:2rem;font-weight:800;color:var(--blue);margin-bottom:6px">4人</div>
+      <div class="ov-title">开发团队规模</div>
+      <div class="ov-desc">后端工程师 ×2<br>数据工程师 ×1<br>前端工程师 ×1</div>
+    </div>
+    <div class="ov-card cyan" style="text-align:center">
+      <div style="font-size:2rem;font-weight:800;color:var(--cyan);margin-bottom:6px">4个月</div>
+      <div class="ov-title">完整交付周期</div>
+      <div class="ov-desc">分4个阶段渐进交付<br>第1阶段4周可上线<br>基础问答能力</div>
+    </div>
+    <div class="ov-card purple" style="text-align:center">
+      <div style="font-size:2rem;font-weight:800;color:var(--purple);margin-bottom:6px">4×A100</div>
+      <div class="ov-title">GPU 推理资源</div>
+      <div class="ov-desc">Qwen2.5-72B 推理<br>支持 ~20 QPS 并发<br>（或使用云 API 替代）</div>
+    </div>
+    <div class="ov-card green" style="text-align:center">
+      <div style="font-size:2rem;font-weight:800;color:var(--green);margin-bottom:6px">16 核 / 64G</div>
+      <div class="ov-title">应用服务器</div>
+      <div class="ov-desc">FastAPI + Milvus<br>+ PostgreSQL + Redis<br>可 K8s 容器化部署</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>数仓 AI Agent 技术方案 · 生成于 2026-03-24</p>
+  <p style="margin-top:8px;font-size:.75rem">本方案仅供内部技术评审参考，具体实施细节需结合实际基础设施进一步细化。</p>
+</footer>
+
+<script>
+// ── TAB SWITCH ──
+document.getElementById('modTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.mod-tab');
+  if (!tab) return;
+  document.querySelectorAll('.mod-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.mod-panel').forEach(p => p.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById(tab.dataset.panel).classList.add('active');
+});
+
+// ── SCROLL FADE-IN ──
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.06 });
+
+document.querySelectorAll('.ov-card, .tl-phase, .stack-card, .detail-card, .arch-wrap').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(20px)';
+  el.style.transition = 'opacity .5s ease, transform .5s ease';
+  observer.observe(el);
+});
+
+// ── ACTIVE NAV LINK ──
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
+window.addEventListener('scroll', () => {
+  let cur = '';
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) cur = s.id; });
+  navLinks.forEach(a => {
+    a.style.color = a.getAttribute('href') === '#'+cur ? 'var(--text)' : '';
+    a.style.background = a.getAttribute('href') === '#'+cur ? 'var(--bg3)' : '';
+  });
+}, { passive: true });
+</script>
+</body>
+</html>
