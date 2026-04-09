@@ -10,14 +10,14 @@ ehthumbs.db
 Desktop.ini
 
 # Office / 表格与文档（非代码数据）
-*.xlsx
-*.xls
-*.xlsm
-*.doc
-*.docx
-*.ppt
-*.pptx
-*.pdf
+# *.xlsx
+# *.xls
+# *.xlsm
+# *.doc
+# *.docx
+# *.ppt
+# *.pptx
+# *.pdf
 
 # 压缩包
 *.zip

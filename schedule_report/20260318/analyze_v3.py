@@ -134,7 +134,10 @@ def basic_stats(df_meta, df_history):
     # 过滤 AUTO + SUCCESSFUL
     succ = hist[(hist['status'] == 'SUCCESSFUL') & (hist['execute_type'] == 'AUTO')].copy()
     succ = enrich(succ, 'job_name')
-    succ['date'] = succ['end_time'].dt.date.astype(str)
+    # 用 fire_time 日期作为分组基准（排除跨日溢出记录）
+    succ['date'] = succ['fire_time'].dt.date.astype(str)
+    # 只保留 00:00~07:59 触发的 overnight 批处理作业，排除日间轮询类
+    succ = succ[succ['fire_time'].dt.hour < 8].copy()
 
     return {
         'total_jobs': total_jobs,
